@@ -1,0 +1,95 @@
+.fc {
+  font-family: inherit;
+}
+
+.fc-event {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.75rem; /* Smaller text on mobile */
+}
+
+.fc-daygrid-event {
+  white-space: normal;
+  overflow: hidden;
+}
+
+.fc-event-main-frame {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2px;
+  min-width: 0; /* Allow flex children to shrink */
+}
+
+.fc-event-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.fc-button {
+  text-transform: capitalize !important;
+  font-size: 0.875rem !important; /* Smaller buttons on mobile */
+  padding: 0.375rem 0.75rem !important;
+}
+
+.fc-button-primary {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.fc-button-primary:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
+}
+
+.fc-button-primary:disabled {
+  opacity: 0.5;
+}
+
+/* Mobile responsive fixes */
+@media (max-width: 640px) {
+  .fc-toolbar-title {
+    font-size: 1.1rem !important;
+    font-weight: 600;
+  }
+  .fc-button {
+    font-size: 0.8rem !important;
+    padding: 0.25rem 0.5rem !important;
+    min-width: 36px;
+    min-height: 32px;
+  }
+  .fc-daygrid-day-number {
+    font-size: 0.85rem !important;
+  }
+  .fc-event {
+    font-size: 0.6rem !important;
+    padding: 2px 4px !important;
+    margin: 2px 0 !important;
+  }
+  .fc-event-main-frame {
+    gap: 0.25rem !important;
+  }
+  .fc-event-avatar {
+    margin-right: 4px !important;
+    margin-left: 2px !important;
+  }
+  .fc-daygrid {
+    font-size: 0.8rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .fc-scrollgrid {
+    border-radius: 8px !important;
+  }
+  .fc-daygrid-day {
+    min-height: 36px !important;
+    padding: 0 !important;
+  }
+  .fc-daygrid-event {
+    white-space: normal !important;
+    line-height: 1.1;
+  }
+}
