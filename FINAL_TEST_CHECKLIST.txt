@@ -1,0 +1,66 @@
+FINAL CHECKLIST - Verify Everything Before Testing
+===================================================
+
+✅ DONE:
+1. Phone number verified in Twilio: +91 88845 09081 ✓
+2. WhatsApp Sandbox joined: +918884509081 ✓
+3. Function redeployed ✓
+
+⚠️ VERIFY THESE IN SUPABASE:
+Go to: https://supabase.com/dashboard/project/boopfwfmuulofecarecx/settings/functions
+
+Check these 3 secrets exist with EXACT values:
+
+1. TWILIO_ACCOUNT_SID = AC9331f95933de3601fff75e1a7b75bc93
+2. TWILIO_AUTH_TOKEN = [Your actual token from Twilio - click "Show" to get it]
+3. TWILIO_WHATSAPP_NUMBER = +14155238886
+
+CRITICAL: The WhatsApp number MUST be +14155238886 (Sandbox number)
+         NOT +12525827423 (that's your SMS number)
+
+===================================================
+
+THEN TEST:
+
+Go to: https://supabase.com/dashboard/project/boopfwfmuulofecarecx/sql/new
+
+Run this SQL:
+---
+SELECT 
+  (net.http_post(
+    url := 'https://boopfwfmuulofecarecx.supabase.co/functions/v1/send-whatsapp-reminder',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvb3Bmd2ZtdXVsb2ZlY2FyZWN4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDA4NzA3OCwiZXhwIjoyMDc1NjYzMDc4fQ.Q5QJloEHRgPNmSTcOTsE1TevjH3MCrdGVDWUPSifHSI'
+    ),
+    body := jsonb_build_object(
+      'user_id', 'dcdd04ee-9806-4dcd-89bb-92fb77cc5074',
+      'message', 'Test WhatsApp from Family Calendar!'
+    )
+  )).content::text;
+---
+
+EXPECTED RESULT:
+If successful: {"success":true,"sid":"SM...","message":"WhatsApp sent!"}
+If error: {"error":"...some error message..."}
+
+Then CHECK YOUR WHATSAPP! 📱
+
+===================================================
+
+TROUBLESHOOTING:
+
+If you see error "User not found":
+- Run: SELECT id, phone FROM profiles WHERE id = 'dcdd04ee-9806-4dcd-89bb-92fb77cc5074';
+- Make sure phone = '+918884509081'
+
+If you see "Twilio credentials missing":
+- Double-check all 3 secrets are in Supabase
+
+If you see Twilio error like "21608" or "21211":
+- WhatsApp Sandbox not joined properly
+- Wrong phone number format
+- Phone not verified
+
+Check logs at:
+https://supabase.com/dashboard/project/boopfwfmuulofecarecx/logs/edge-functions

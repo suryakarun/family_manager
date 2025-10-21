@@ -1,0 +1,158 @@
+  .fc-prev-button, .fc-next-button {
+    width: 44px !important;
+    height: 36px !important;
+    min-width: 44px !important;
+    min-height: 36px !important;
+    font-size: 1rem !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .fc-prev-button .fc-icon, .fc-next-button .fc-icon {
+    margin: 0 !important;
+    line-height: 1 !important;
+  }
+/* Global mobile tweaks for dashboard and calendar */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    max-width: 100vw !important;
+  }
+  .fc-toolbar-title {
+    font-size: 1.1rem !important;
+    font-weight: 600;
+  }
+  .fc-button {
+    font-size: 0.8rem !important;
+    padding: 0.25rem 0.5rem !important;
+    min-width: 36px;
+    min-height: 32px;
+  }
+  .fc {
+    font-size: 0.85rem;
+  }
+  .fc-daygrid-day-number {
+    font-size: 0.85rem !important;
+  }
+  .fc-event {
+    font-size: 0.6rem !important;
+    padding: 1px 2px !important;
+  }
+  .fc-toolbar {
+    flex-direction: row !important;
+    gap: 0.25rem !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .fc-header-toolbar {
+    margin-bottom: 0.25rem !important;
+  }
+  .fc-toolbar-chunk {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    margin-bottom: 0 !important;
+    margin-right: 0.25rem !important;
+  }
+  .fc-button, .fc-today-button {
+    font-size: 0.85rem !important;
+    padding: 0.25rem 0.75rem !important;
+    min-width: 44px !important;
+    min-height: 32px !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+  }
+  .fc-button-group {
+    gap: 2px !important;
+    margin-right: 0.25rem !important;
+  }
+  .fc-daygrid {
+    font-size: 0.8rem !important;
+  }
+  .fc-scrollgrid {
+    border-radius: 8px !important;
+  }
+  .fc-daygrid-day {
+    min-height: 36px !important;
+  }
+  .fc-daygrid-event {
+    white-space: normal !important;
+    line-height: 1.1;
+  }
+  .fc-daygrid-event-dot {
+    margin-right: 2px !important;
+  }
+  .fc-daygrid-block-event .fc-event-main {
+    padding: 0 2px !important;
+  }
+  .fc-button-group {
+    gap: 2px !important;
+  }
+  .fc-toolbar-chunk {
+    width: 100%;
+  }
+  .fc-toolbar .fc-button {
+    width: 100%;
+  }
+  .fc-toolbar .fc-button:not(:last-child) {
+    margin-bottom: 2px;
+  }
+  .fc-toolbar .fc-button {
+    border-radius: 6px !important;
+  }
+  .fc-toolbar .fc-button.fc-today-button {
+    min-width: 60px;
+  }
+  .fc .fc-daygrid-day-frame {
+    padding: 2px 0 !important;
+  }
+  .fc .fc-daygrid-day-top {
+    flex-direction: row !important;
+    gap: 2px !important;
+  }
+  .fc .fc-daygrid-day-events {
+    margin-top: 2px !important;
+  }
+  .fc .fc-daygrid-day {
+    padding: 0 !important;
+  }
+  .fc .fc-daygrid-day-bg {
+    border-radius: 6px !important;
+  }
+  .fc .fc-daygrid-day {
+    border-radius: 6px !important;
+  }
+  .fc .fc-daygrid-day.fc-day-today {
+    background: #f3f4f6 !important;
+  }
+  .fc .fc-daygrid-day.fc-day-selected {
+    background: #e0e7ff !important;
+  }
+  .fc .fc-daygrid-day.fc-day-past {
+    opacity: 0.7;
+  }
+  .fc .fc-daygrid-day.fc-day-future {
+    opacity: 1;
+  }
+  .fc .fc-daygrid-day.fc-day-other {
+    opacity: 0.5;
+  }
+  .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    color: #2563eb !important;
+    font-weight: 700;
+  }
+  .fc .fc-daygrid-day.fc-day-selected .fc-daygrid-day-number {
+    color: #7c3aed !important;
+    font-weight: 700;
+  }
+  .fc .fc-daygrid-day.fc-day-past .fc-daygrid-day-number {
+    color: #6b7280 !important;
+  }
+}
