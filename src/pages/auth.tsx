@@ -1,11 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { Calendar, Users, Sparkles } from "lucide-react";
 
@@ -14,19 +25,67 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  // Color selection removed per request; default theme will be used
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Removed signup color palette
+  useEffect(() => {
+    console.log('Auth component mounted, checking session...');
+    // Check if user is already signed in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Current session:', session);
+      if (session) {
+        console.log('Session found, navigating to dashboard');
+        navigate("/dashboard");
+      }
+    });
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session);
+      if (session) {
+        console.log('New session detected, navigating to dashboard');
+        navigate("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // OAuth sign-in handlers
+  const handleOAuthSignIn = async (provider: "google" | "facebook") => {
+    setLoading(true);
+    try {
+      console.log('Starting OAuth sign in with:', provider);
+      console.log('Redirect URL will be:', `${window.location.origin}/dashboard`);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      console.log('OAuth response:', { data, error });
+      if (error) throw error;
+    } catch (error: unknown) {
+      const err = error as { message?: string } | undefined;
+      console.error('OAuth error:', err);
+      toast({
+        title: "Error",
+        description: err?.message || `Sign in with ${provider} failed`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Sign up with additional metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -34,7 +93,6 @@ const Auth = () => {
           data: {
             full_name: fullName,
             phone: phone,
-            // event_color removed
           },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
@@ -43,7 +101,7 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Update profile with phone and color
+        // Update profile with phone
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -99,7 +157,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -129,7 +187,8 @@ const Auth = () => {
               Family Smart Calendar
             </h1>
             <p className="text-xl text-muted-foreground">
-              Keep your family organized, connected, and happy with AI-powered scheduling
+              Keep your family organized, connected, and happy with
+              AI-powered scheduling
             </p>
           </div>
 
@@ -163,7 +222,9 @@ const Auth = () => {
                 <Sparkles className="h-6 w-6 text-success" />
               </div>
               <div>
-                <h3 className="font-semibold mb-1">WhatsApp Integration</h3>
+                <h3 className="font-semibold mb-1">
+                  WhatsApp Integration
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   Send reminders and parse invites automatically
                 </p>
@@ -176,7 +237,9 @@ const Auth = () => {
         <Card className="shadow-elegant border-2">
           <CardHeader>
             <CardTitle className="text-2xl">Welcome</CardTitle>
-            <CardDescription>Sign in or create an account to get started</CardDescription>
+            <CardDescription>
+              Sign in or create an account to get started
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -185,6 +248,7 @@ const Auth = () => {
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
+              {/* Sign In */}
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
@@ -196,6 +260,7 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      autoComplete="username"
                     />
                   </div>
                   <div className="space-y-2">
@@ -206,14 +271,46 @@ const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      autoComplete="current-password"
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
+                <div className="my-4 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleOAuthSignIn("google")}
+                    disabled={loading}
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475656/google-color.svg"
+                      alt="Google"
+                      className="h-5 w-5"
+                    />
+                    Continue with Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleOAuthSignIn("facebook")}
+                    disabled={loading}
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475647/facebook-color.svg"
+                      alt="Facebook"
+                      className="h-5 w-5"
+                    />
+                    Continue with Facebook
+                  </Button>
+                </div>
               </TabsContent>
 
+              {/* Sign Up */}
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
@@ -239,7 +336,9 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-phone">WhatsApp Phone Number</Label>
+                    <Label htmlFor="signup-phone">
+                      WhatsApp Phone Number
+                    </Label>
                     <Input
                       id="signup-phone"
                       type="tel"
@@ -261,13 +360,43 @@ const Auth = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
+                      autoComplete="new-password"
                     />
                   </div>
-                  {/* Color selection removed */}
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
+                <div className="my-4 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleOAuthSignIn("google")}
+                    disabled={loading}
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475656/google-color.svg"
+                      alt="Google"
+                      className="h-5 w-5"
+                    />
+                    Continue with Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleOAuthSignIn("facebook")}
+                    disabled={loading}
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475647/facebook-color.svg"
+                      alt="Facebook"
+                      className="h-5 w-5"
+                    />
+                    Continue with Facebook
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>
