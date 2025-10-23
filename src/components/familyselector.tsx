@@ -27,9 +27,20 @@ interface Family {
   name: string;
 }
 
+
 interface FamilySelectorProps {
   selectedFamilyId: string | null;
   onSelectFamily: (familyId: string) => void;
+}
+
+interface FamilyMember {
+  id: string;
+  user_id: string;
+  role: string;
+  profiles?: {
+    full_name?: string;
+    email?: string;
+  };
 }
 
 const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProps) => {
@@ -38,10 +49,63 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFamilies();
+    getCurrentUserId();
   }, []);
+
+  useEffect(() => {
+    if (selectedFamilyId) {
+      fetchMembers(selectedFamilyId);
+    }
+  }, [selectedFamilyId]);
+
+  const getCurrentUserId = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
+  const fetchMembers = async (familyId: string) => {
+      const { data, error } = await supabase
+        .from("family_members")
+        .select("id, user_id, role, profiles!family_members_user_id_fkey(full_name, email)")
+        .eq("family_id", familyId);
+      if (error) {
+        console.error("Error fetching members:", error);
+        setMembers([]);
+        return;
+      }
+      // Ensure profiles is an object or undefined, not an error object
+      const safeData = (data || []).map((member: any) => ({
+        ...member,
+        profiles: typeof member.profiles === "object" && member.profiles !== null && !("code" in member.profiles)
+          ? member.profiles
+          : undefined,
+      }));
+      setMembers(safeData);
+    };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedFamilyId) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("family_members")
+        .delete()
+        .eq("id", memberId)
+        .eq("family_id", selectedFamilyId);
+      if (error) throw error;
+      toast({ title: "Member removed" });
+      fetchMembers(selectedFamilyId);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchFamilies = async () => {
     const { data: familyMembers, error } = await supabase
@@ -54,9 +118,14 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
       return;
     }
 
+    interface FamilyMemberRow {
+      family_id: string;
+      families: Family | null;
+    }
+
     const familiesData =
-      familyMembers
-        ?.map((fm: any) => fm.families)
+      (familyMembers as FamilyMemberRow[] | null)
+        ?.map((fm) => fm.families)
         .filter((f): f is Family => f !== null) || [];
 
     setFamilies(familiesData);
@@ -108,10 +177,11 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
       setIsDialogOpen(false);
       fetchFamilies();
       onSelectFamily(family.id);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -120,8 +190,9 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <Select value={selectedFamilyId || undefined} onValueChange={onSelectFamily}>
+    <div className="flex flex-col gap-4">
+  <div className="flex items-center gap-2">
+  <Select value={selectedFamilyId || undefined} onValueChange={onSelectFamily}>
         <SelectTrigger className="w-[200px]">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -171,6 +242,34 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
+
+      {/* Member management section */}
+      {selectedFamilyId && (
+        <div className="mt-4 border rounded p-3 bg-muted">
+          <div className="font-semibold mb-2">Family Members</div>
+          <ul className="space-y-2">
+            {members.map((member) => (
+              <li key={member.id} className="flex items-center justify-between">
+                <span>
+                  {member.profiles?.full_name || member.profiles?.email || member.user_id}
+                  {member.role === "admin" && <span className="ml-2 text-xs text-primary">(Owner)</span>}
+                </span>
+                {member.role !== "admin" && member.user_id !== currentUserId && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRemoveMember(member.id)}
+                    disabled={loading}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
