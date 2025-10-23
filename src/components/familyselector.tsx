@@ -53,10 +53,10 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFamilies();
-    getCurrentUserId();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  fetchFamilies();
+  getCurrentUserId();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   useEffect(() => {
     if (selectedFamilyId) {
@@ -79,12 +79,15 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
         return;
       }
       // Ensure profiles is an object or undefined, not an error object
-      const safeData = (data || []).map((member: any) => ({
+      const safeData = (data || []).map((member) => ({
         ...member,
-        profiles: typeof member.profiles === "object" && member.profiles !== null && !("code" in member.profiles)
-          ? member.profiles
-          : undefined,
-      }));
+        profiles:
+          member.profiles &&
+          typeof member.profiles === "object" &&
+          !("code" in member.profiles)
+            ? (member.profiles as { full_name?: string; email?: string })
+            : undefined,
+      })) as FamilyMember[];
       setMembers(safeData);
     };
 
