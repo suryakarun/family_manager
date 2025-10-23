@@ -7,7 +7,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import { Card } from "@/components/ui/card";
 import EventModal from "@/components/eventmodal";
 import { useToast } from "@/components/ui/use-toast";
-import "./FamilyCalendar.css";
+import "./familycalendar.css";
 
 interface FamilyCalendarProps {
   familyId: string;
