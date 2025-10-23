@@ -55,6 +55,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   useEffect(() => {
     fetchFamilies();
     getCurrentUserId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
