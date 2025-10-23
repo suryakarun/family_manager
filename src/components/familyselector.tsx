@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { supabase } from "../integrations/supabase/client";
+import { Button } from "./ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,24 +9,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "./ui/select";
 import { Plus, Users } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "./ui/use-toast";
 
 interface Family {
   id: string;
   name: string;
 }
-
 
 interface FamilySelectorProps {
   selectedFamilyId: string | null;
@@ -53,10 +52,10 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-  fetchFamilies();
-  getCurrentUserId();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    fetchFamilies();
+    getCurrentUserId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (selectedFamilyId) {
@@ -69,26 +68,29 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
     setCurrentUserId(user?.id || null);
   };
   const fetchMembers = async (familyId: string) => {
-      const { data, error } = await supabase
-        .from("family_members")
-        .select("id, user_id, role, profiles!family_members_user_id_fkey(full_name, email)")
-        .eq("family_id", familyId);
-      if (error) {
-        console.error("Error fetching members:", error);
-        setMembers([]);
-        return;
-      }
-      // Ensure profiles is an object or undefined, not an error object
-      const safeData = (data || []).map((member) => ({
-        ...member,
-        profiles:
-          member.profiles &&
-          typeof member.profiles === "object" &&
-          !("code" in member.profiles)
-            ? (member.profiles as { full_name?: string; email?: string })
-            : undefined,
-      })) as FamilyMember[];
-      setMembers(safeData);
+    const { data, error } = await supabase
+      .from("family_members")
+      .select("id, user_id, role, profiles:profiles!family_members_user_id_fkey(full_name, email)")
+      .eq("family_id", familyId);
+    if (error) {
+      console.error("Error fetching members:", error);
+      setMembers([]);
+      return;
+    }
+    // Use the correct type for the returned member object
+    type SupabaseMember = {
+      id: string;
+      user_id: string;
+      role: string;
+      profiles: { full_name?: string; email?: string } | null;
+    };
+    const safeData = (data || []).map((member: SupabaseMember) => ({
+      ...member,
+      profiles: member.profiles && typeof member.profiles === "object" && !("code" in member.profiles)
+        ? member.profiles
+        : undefined,
+    }));
+    setMembers(safeData);
     };
 
   const handleRemoveMember = async (memberId: string) => {
@@ -232,7 +234,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
                 id="family-name"
                 placeholder="The Smiths"
                 value={newFamilyName}
-                onChange={(e) => setNewFamilyName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFamilyName(e.target.value)}
               />
             </div>
           </div>
