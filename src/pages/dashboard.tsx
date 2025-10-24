@@ -95,7 +95,7 @@ const Dashboard = () => {
       return;
     }
 
-    const link = generateInviteLink();
+    const link = generateInviteLink("https://familycalend.netlify.app/");
     const message = `Join our family calendar! Click here to get started: ${link}`;
     const whatsappUrl = `https://wa.me/${invitePhone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
     
