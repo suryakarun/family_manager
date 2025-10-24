@@ -63,7 +63,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: 'https://familycalend.netlify.app/auth/callback',
         },
       });
       console.log('OAuth response:', { data, error });
