@@ -72,7 +72,7 @@ const Dashboard = () => {
   const generateInviteLink = () => {
     if (!selectedFamilyId) return "";
     // Use production domain instead of window.location.origin
-    const baseUrl = import.meta.env.VITE_APP_URL || "https://your-domain.com";
+    const baseUrl = import.meta.env.VITE_APP_URL || "https://familycalend.netlify.app/";
     return `${baseUrl}/join-family?id=${selectedFamilyId}`;
   };
 
