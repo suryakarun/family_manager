@@ -10,7 +10,7 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 
 # App URL (for invite links - use your deployed domain)
-VITE_APP_URL=https://your-production-domain.com
+VITE_APP_URL=https://familycalend.netlify.app/
 ```
 
 ## For Local Development

@@ -26,7 +26,7 @@
 **Action Required:**
 Add to your `.env` file:
 ```
-VITE_APP_URL=https://your-production-domain.com
+VITE_APP_URL=https://familycalend.netlify.app/
 ```
 
 **Files Changed:**
