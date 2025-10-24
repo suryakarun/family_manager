@@ -114,7 +114,7 @@ This document tracks all features implemented, fixes applied, and pending tasks 
   - Changed from `window.location.origin` to `import.meta.env.VITE_APP_URL`
   - Uses custom app scheme or production domain
 - **Environment**: `.env` file
-  - Added `VITE_APP_URL=familycalendar://app`
+  - Added `VITE_APP_URL=https://familycalend.netlify.app/` (used for web invite links). Mobile app scheme (e.g. `familycalendar://app`) can also be configured separately if needed.
 - **Documentation**: Created `ENV_SETUP.md`
 - **Result**: Invite links work correctly when shared
 
