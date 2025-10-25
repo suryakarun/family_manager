@@ -11,7 +11,6 @@ import Dashboard from "./pages/dashboard";
 import JoinFamily from "./pages/JoinFamily";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/notfound";
-import AuthCodeCatcher from "@/components/AuthCodeCatcher"; // ⬅️ add this
 
 const queryClient = new QueryClient();
 
@@ -21,12 +20,14 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthCodeCatcher /> {/* ⬅️ add this line */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          {/* New family-specific invite route with token validation */}
+          <Route path="/join-family/:familyId/:inviteToken" element={<JoinFamily />} />
+          {/* Legacy route for backward compatibility */}
           <Route path="/join-family" element={<JoinFamily />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />

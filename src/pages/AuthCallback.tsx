@@ -1,45 +1,57 @@
+// src/pages/AuthCallback.tsx
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
-function AuthCallback() {
+export default function AuthCallback() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
     (async () => {
       try {
+        // Only handle on the exact callback route
+        if (pathname !== "/auth/callback") return;
+
+        // If we already have a session, go forward
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await ensureProfileAndFamily(session.user.id);
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        // Prevent duplicate handling across remounts/navigations
+        if (sessionStorage.getItem("__pkce_done") === "1") return;
+        sessionStorage.setItem("__pkce_done", "1");
+
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
 
-        // PKCE flow: exchange code for session
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession({ code });
+          // Exchange the PKCE code ONCE
+          const { error } = await supabase.auth.exchangeCodeForSession({ code!});
+
+          // Strip ?code from the URL immediately, stay on /auth/callback
+          window.history.replaceState({}, "", url.origin + "/auth/callback");
+
           if (error) throw error;
-          window.history.replaceState({}, "", url.origin + "/");
-        } else {
-          // fallback: hash tokens (rare)
-          const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-          const access_token = hash.get("access_token");
-          const refresh_token = hash.get("refresh_token");
-          if (access_token && refresh_token) {
-            const { error } = await supabase.auth.setSession({
-              access_token,
-              refresh_token,
-            });
-            if (error) throw error;
-            window.history.replaceState({}, "", url.origin + "/");
-          }
+
+          const { data: { session: newSession } } = await supabase.auth.getSession();
+          if (!newSession) throw new Error("No session found after exchange.");
+
+          await ensureProfileAndFamily(newSession.user.id);
+          navigate("/dashboard", { replace: true });
+          return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("No session found.");
-
-        await ensureProfileAndFamily(session.user.id);
-        navigate("/dashboard", { replace: true });
+        // No code -> back to /auth
+        navigate("/auth", { replace: true });
       } catch (err: any) {
         console.error("Auth callback error:", err);
+        sessionStorage.removeItem("__pkce_done"); // allow retry if something failed
         toast({
           title: "Authentication Error",
           description: err?.message ?? "Failed to complete sign in.",
@@ -48,7 +60,7 @@ function AuthCallback() {
         navigate("/auth", { replace: true });
       }
     })();
-  }, [navigate, toast]);
+  }, [pathname, navigate, toast]);
 
   return (
     <div className="min-h-screen bg-gradient-soft flex items-center justify-center p-4">
@@ -59,8 +71,6 @@ function AuthCallback() {
     </div>
   );
 }
-
-export default AuthCallback;
 
 async function ensureProfileAndFamily(userId: string) {
   try {
