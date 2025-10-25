@@ -5,12 +5,14 @@ import { Preferences } from '@capacitor/preferences';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    "Missing Supabase environment variables. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.\n" +
-      "Locally: create a .env file at project root with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (Vite requires the VITE_ prefix).\n" +
-      "On Vercel: set these variables in Project Settings -> Environment Variables."
-  );
+// Debug: confirm env vars are available at runtime (don't print full keys)
+try {
+  // eslint-disable-next-line no-console
+  console.log('[supabase/client] SUPABASE_URL present?', !!SUPABASE_URL);
+  // eslint-disable-next-line no-console
+  console.log('[supabase/client] SUPABASE_ANON_KEY present?', !!SUPABASE_ANON_KEY, 'prefix=', SUPABASE_ANON_KEY ? `${String(SUPABASE_ANON_KEY).slice(0,6)}...` : null);
+} catch (e) {
+  // ignore in non-browser environments
 }
 
 // Custom storage adapter for Capacitor
