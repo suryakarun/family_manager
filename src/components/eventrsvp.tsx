@@ -48,16 +48,16 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
         return;
       }
 
-      // Fetch user profiles separately
+      // Fetch user profiles separately (only full_name, no email)
       const userIds = rsvps.map(r => r.user_id);
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name")
         .in("id", userIds);
 
       if (profileError) {
         console.error("Error fetching profiles:", profileError);
-        return;
+        // Continue even if profiles fail - show user_id instead
       }
 
       // Combine RSVPs with profile data
@@ -67,8 +67,8 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
           user_id: rsvp.user_id,
           status: rsvp.status,
           rsvp_at: rsvp.rsvp_at,
-          user_name: profile?.full_name || "Unknown",
-          user_email: profile?.email || "",
+          user_name: profile?.full_name || "User",
+          user_email: "", // Not needed for display
         };
       });
 
