@@ -1,6 +1,4 @@
-.fc {
-  font-family: inherit;
-}
+.fc { font-family: inherit; }
 
 .fc-event {
   cursor: pointer;
@@ -9,10 +7,7 @@
   font-size: 0.75rem; /* Smaller text on mobile */
 }
 
-.fc-daygrid-event {
-  white-space: normal;
-  overflow: hidden;
-}
+.fc-daygrid-event { white-space: normal; overflow: hidden; }
 
 .fc-event-main-frame {
   display: flex;
@@ -32,7 +27,7 @@
 
 .fc-button {
   text-transform: capitalize !important;
-  font-size: 0.875rem !important; /* Smaller buttons on mobile */
+  font-size: 0.875rem !important;
   padding: 0.375rem 0.75rem !important;
 }
 
@@ -40,56 +35,85 @@
   background-color: hsl(var(--primary)) !important;
   border-color: hsl(var(--primary)) !important;
 }
-
-.fc-button-primary:hover {
-  background-color: hsl(var(--primary) / 0.9) !important;
-}
-
-.fc-button-primary:disabled {
-  opacity: 0.5;
-}
+.fc-button-primary:hover { background-color: hsl(var(--primary) / 0.9) !important; }
+.fc-button-primary:disabled { opacity: 0.5; }
 
 /* Mobile responsive fixes */
 @media (max-width: 640px) {
-  .fc-toolbar-title {
-    font-size: 1.1rem !important;
-    font-weight: 600;
-  }
-  .fc-button {
-    font-size: 0.8rem !important;
-    padding: 0.25rem 0.5rem !important;
-    min-width: 36px;
-    min-height: 32px;
-  }
-  .fc-daygrid-day-number {
-    font-size: 0.85rem !important;
-  }
-  .fc-event {
-    font-size: 0.6rem !important;
-    padding: 2px 4px !important;
-    margin: 2px 0 !important;
-  }
-  .fc-event-main-frame {
-    gap: 0.25rem !important;
-  }
-  .fc-event-avatar {
-    margin-right: 4px !important;
-    margin-left: 2px !important;
-  }
-  .fc-daygrid {
-    font-size: 0.8rem !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  .fc-scrollgrid {
-    border-radius: 8px !important;
-  }
-  .fc-daygrid-day {
-    min-height: 36px !important;
-    padding: 0 !important;
-  }
-  .fc-daygrid-event {
-    white-space: normal !important;
-    line-height: 1.1;
-  }
+  .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600; }
+  .fc-button { font-size: 0.8rem !important; padding: 0.25rem 0.5rem !important; min-width: 36px; min-height: 32px; }
+  .fc-daygrid-day-number { font-size: 0.85rem !important; }
+  .fc-event { font-size: 0.6rem !important; padding: 2px 4px !important; margin: 2px 0 !important; }
+  .fc-event-main-frame { gap: 0.25rem !important; }
+  .fc-event-avatar { margin-right: 4px !important; margin-left: 2px !important; }
+  .fc-daygrid { font-size: 0.8rem !important; padding: 0 !important; margin: 0 !important; }
+  .fc-scrollgrid { border-radius: 8px !important; }
+  .fc-daygrid-day { min-height: 36px !important; padding: 0 !important; }
+  .fc-daygrid-event { white-space: normal !important; line-height: 1.1; }
+}
+
+/* ---------------- Dark mode skin (scoped) ---------------- */
+.dark .fc-dark-skin .fc,
+.dark .fc-dark-skin .fc * {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Grid & cells backgrounds */
+.dark .fc-dark-skin .fc .fc-scrollgrid,
+.dark .fc-dark-skin .fc .fc-daygrid,
+.dark .fc-dark-skin .fc .fc-timegrid,
+.dark .fc-dark-skin .fc .fc-col-header,
+.dark .fc-dark-skin .fc .fc-col-header-cell,
+.dark .fc-dark-skin .fc .fc-daygrid-day,
+.dark .fc-dark-skin .fc .fc-daygrid-day-frame,
+.dark .fc-dark-skin .fc .fc-daygrid-day-bg,
+.dark .fc-dark-skin .fc .fc-timegrid-axis,
+.dark .fc-dark-skin .fc .fc-timegrid-body,
+.dark .fc-dark-skin .fc .fc-timegrid-slots,
+.dark .fc-dark-skin .fc .fc-timegrid-slot,
+.dark .fc-dark-skin .fc .fc-daygrid-day-top {
+  background-color: hsl(var(--background)) !important;
+}
+
+/* Borders */
+.dark .fc-dark-skin .fc-theme-standard td,
+.dark .fc-dark-skin .fc-theme-standard th,
+.dark .fc-dark-skin .fc .fc-scrollgrid {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Header day names */
+.dark .fc-dark-skin .fc .fc-col-header-cell-cushion {
+  color: hsl(var(--muted-foreground)) !important;
+  font-weight: 600;
+}
+
+/* Day numbers */
+.dark .fc-dark-skin .fc .fc-daygrid-day-number {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Today highlight */
+.dark .fc-dark-skin .fc .fc-day-today,
+.dark .fc-dark-skin .fc .fc-timegrid-col.fc-day-today {
+  background-color: hsl(var(--primary) / 0.08) !important;
+}
+.dark .fc-dark-skin .fc .fc-day-today .fc-daygrid-day-number {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 700 !important;
+}
+
+/* Events on dark */
+.dark .fc-dark-skin .fc .fc-event {
+  color: #fff !important;
+  border: 0 !important;
+}
+
+/* Buttons on dark */
+.dark .fc-dark-skin .fc .fc-button-primary {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+.dark .fc-dark-skin .fc .fc-button-primary:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
 }
