@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Index from "./pages/index";
 import Auth from "./pages/auth";
 import AuthCallback from "./pages/AuthCallback";
@@ -25,10 +26,15 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          {/* New family-specific invite route with token validation */}
-          <Route path="/join-family/:familyId/:inviteToken" element={<JoinFamily />} />
-          {/* Legacy route for backward compatibility */}
+          
+          {/*
+            Invite routes:
+            - with optional token: /join-family/:familyId or /join-family/:familyId/:inviteToken
+            - legacy bare path: /join-family (kept for backward compatibility)
+          */}
+          <Route path="/join-family/:familyId/:inviteToken?" element={<JoinFamily />} />
           <Route path="/join-family" element={<JoinFamily />} />
+
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
