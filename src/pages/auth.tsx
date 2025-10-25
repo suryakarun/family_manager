@@ -60,10 +60,13 @@ const Auth = () => {
     try {
       console.log('Starting OAuth sign in with:', provider);
       console.log('Redirect URL will be:', `${window.location.origin}/dashboard`);
+      // Use VITE_APP_URL if available, otherwise fall back to the production domain
+      const redirectBase = import.meta.env.VITE_APP_URL || 'https://familycalend.netlify.app';
+      const redirectTo = `${redirectBase.replace(/\/$/, '')}/auth/callback`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: 'https://familycalend.netlify.app/auth/callback',
+          redirectTo,
         },
       });
       console.log('OAuth response:', { data, error });

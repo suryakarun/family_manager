@@ -69,11 +69,13 @@ const Dashboard = () => {
     }
   }, [selectedFamilyId, fetchFamilyStats]);
 
-  const generateInviteLink = () => {
+  const generateInviteLink = (overrideBase?: string) => {
     if (!selectedFamilyId) return "";
-    // Use production domain instead of window.location.origin
-    const baseUrl = import.meta.env.VITE_APP_URL || "https://familycalend.netlify.app/";
-    return `${baseUrl}/join-family?id=${selectedFamilyId}`;
+    // Use VITE_APP_URL if set, otherwise fall back to the production domain
+    const defaultBase = import.meta.env.VITE_APP_URL || "https://familycalend.netlify.app";
+    const base = overrideBase && overrideBase.trim() ? overrideBase : defaultBase;
+    // Ensure there is no trailing slash before appending the path
+    return `${base.replace(/\/$/, "")}/join-family?id=${selectedFamilyId}`;
   };
 
   const copyInviteLink = () => {
@@ -95,7 +97,7 @@ const Dashboard = () => {
       return;
     }
 
-    const link = generateInviteLink();
+  const link = generateInviteLink();
     const message = `Join our family calendar! Click here to get started: ${link}`;
     const whatsappUrl = `https://wa.me/${invitePhone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
     
