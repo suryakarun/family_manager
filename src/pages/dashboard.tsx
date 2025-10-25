@@ -6,13 +6,9 @@ import DashboardHeader from "@/components/dashboardheader";
 import FamilySelector from "@/components/familyselector";
 import FamilyCalendar from "@/components/familycalendar";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Copy, Share2, UserPlus, Calendar as CalIcon, Users, Sparkles, Plane } from "lucide-react";
+import { Calendar as CalIcon, Users, Sparkles, Plane } from "lucide-react";
 import { TravelPlanner } from "@/components/TravelPlanner";
 import { TravelPlanResults } from "@/components/TravelPlanResults";
 
@@ -21,8 +17,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [familyStats, setFamilyStats] = useState({ events: 0, members: 0, rsvps: 0 });
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [invitePhone, setInvitePhone] = useState("");
   const [travelPlan, setTravelPlan] = useState(null);
   const [eventDetails, setEventDetails] = useState(null);
   const navigate = useNavigate();
@@ -69,48 +63,6 @@ const Dashboard = () => {
     }
   }, [selectedFamilyId, fetchFamilyStats]);
 
-  const generateInviteLink = (overrideBase?: string) => {
-    if (!selectedFamilyId) return "";
-    // Use VITE_APP_URL if set, otherwise fall back to the production domain
-    const defaultBase = import.meta.env.VITE_APP_URL || "https://familycalend.netlify.app";
-    const base = overrideBase && overrideBase.trim() ? overrideBase : defaultBase;
-    // Ensure there is no trailing slash before appending the path
-    return `${base.replace(/\/$/, "")}/join-family?id=${selectedFamilyId}`;
-  };
-
-  const copyInviteLink = () => {
-    const link = generateInviteLink();
-    navigator.clipboard.writeText(link);
-    toast({
-      title: "Link copied!",
-      description: "Share this link with your family members",
-    });
-  };
-
-  const sendWhatsAppInvite = () => {
-    if (!invitePhone.trim()) {
-      toast({
-        title: "Phone required",
-        description: "Please enter a phone number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-  const link = generateInviteLink();
-    const message = `Join our family calendar! Click here to get started: ${link}`;
-    const whatsappUrl = `https://wa.me/${invitePhone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`;
-    
-    window.open(whatsappUrl, "_blank");
-    setInviteDialogOpen(false);
-    setInvitePhone("");
-    
-    toast({
-      title: "WhatsApp opened",
-      description: "Send the invite message to your family member",
-    });
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -138,12 +90,6 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <FamilySelector selectedFamilyId={selectedFamilyId} onSelectFamily={setSelectedFamilyId} />
-            {selectedFamilyId && (
-              <Button onClick={() => setInviteDialogOpen(true)} className="gap-1 px-3 py-2 text-sm rounded-md w-auto">
-                <UserPlus className="h-4 w-4" />
-                <span className="hidden xs:inline">Invite</span>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -200,23 +146,11 @@ const Dashboard = () => {
             </div>
 
             <Card className="p-6">
-              <h3 className="text-xl font-semibold mb-4">Share Your Family Calendar</h3>
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <Input value={generateInviteLink()} readOnly className="flex-1" />
-                  <Button onClick={copyInviteLink} variant="outline" className="gap-2">
-                    <Copy className="h-4 w-4" />
-                    Copy
-                  </Button>
-                  <Button onClick={() => setInviteDialogOpen(true)} className="gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Share via WhatsApp
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Share this link with family members to invite them to your calendar
-                </p>
-              </div>
+              <h3 className="text-xl font-semibold mb-2">Invite Management</h3>
+              <p className="text-muted-foreground text-sm">
+                Use the family selector above to manage members and generate invite links. 
+                Each family has its own unique invite link that only grants access to that specific family.
+              </p>
             </Card>
           </TabsContent>
 
@@ -236,41 +170,6 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
-
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite via WhatsApp</DialogTitle>
-            <DialogDescription>
-              Enter the phone number of the person you want to invite
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">WhatsApp Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1234567890"
-                value={invitePhone}
-                onChange={(e) => setInvitePhone(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Include country code (e.g., +91 for India, +1 for USA)
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={sendWhatsAppInvite} className="gap-2">
-              <Share2 className="h-4 w-4" />
-              Send Invite
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
