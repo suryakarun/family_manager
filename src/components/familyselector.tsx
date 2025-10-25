@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../integrations/supabase/client";
-import { Button } from "./ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,23 +9,24 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
+} from "@/components/ui/select";
 import { Plus, Users } from "lucide-react";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Family {
   id: string;
   name: string;
 }
+
 
 interface FamilySelectorProps {
   selectedFamilyId: string | null;
@@ -68,30 +69,31 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
     setCurrentUserId(user?.id || null);
   };
   const fetchMembers = async (familyId: string) => {
-    const { data, error } = await supabase
-      .from("family_members")
-      .select("id, user_id, role, profiles:profiles!family_members_user_id_fkey(full_name, email)")
-      .eq("family_id", familyId);
-    if (error) {
-      console.error("Error fetching members:", error);
+    // Use secure RPC that joins profiles -> auth.users to get email without exposing auth table to client
+    try {
+      const { data, error } = await supabase.rpc('get_family_members_with_email', { fam_id: familyId });
+      if (error) {
+        console.error('Error fetching members via RPC:', error);
+        setMembers([]);
+        return;
+      }
+
+      // rpc returns rows with columns: family_member_id, profile_id, full_name, email, role
+      const mapped = (data || []).map((row: any) => ({
+        id: row.family_member_id,
+        user_id: row.profile_id,
+        role: row.role,
+        profiles: {
+          full_name: row.full_name,
+          email: row.email,
+        },
+      }));
+      setMembers(mapped);
+    } catch (err) {
+      console.error('Unexpected error fetching members via RPC:', err);
       setMembers([]);
-      return;
     }
-    // Use the correct type for the returned member object
-    type SupabaseMember = {
-      id: string;
-      user_id: string;
-      role: string;
-      profiles: { full_name?: string; email?: string } | null;
-    };
-    const safeData = (data || []).map((member: SupabaseMember) => ({
-      ...member,
-      profiles: member.profiles && typeof member.profiles === "object" && !("code" in member.profiles)
-        ? member.profiles
-        : undefined,
-    }));
-    setMembers(safeData);
-    };
+  };
 
   const handleRemoveMember = async (memberId: string) => {
     if (!selectedFamilyId) return;
@@ -234,7 +236,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
                 id="family-name"
                 placeholder="The Smiths"
                 value={newFamilyName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFamilyName(e.target.value)}
+                onChange={(e) => setNewFamilyName(e.target.value)}
               />
             </div>
           </div>

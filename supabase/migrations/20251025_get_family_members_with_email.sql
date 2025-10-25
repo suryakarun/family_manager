@@ -1,0 +1,23 @@
+-- create RPC to safely expose family members with email
+create or replace function public.get_family_members_with_email(fam_id uuid)
+returns table (
+  family_member_id uuid,
+  profile_id uuid,
+  full_name text,
+  email text,
+  role text
+)
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select fm.id, p.id, p.full_name, u.email, fm.role
+  from public.family_members fm
+  join public.profiles p on p.id = fm.profile_id
+  join auth.users u on u.id = p.user_id
+  where fm.family_id = fam_id;
+$$;
+
+-- tighten permissions: remove public execute and re-grant to anon/authenticated explicitly
+revoke all on function public.get_family_members_with_email(uuid) from public;
+grant execute on function public.get_family_members_with_email(uuid) to anon, authenticated;
