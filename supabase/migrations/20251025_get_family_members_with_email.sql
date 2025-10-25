@@ -1,4 +1,3 @@
--- Safely expose family members with email
 create or replace function public.get_family_members_with_email(fam_id uuid)
 returns table (
   family_member_id uuid,
@@ -25,6 +24,5 @@ as $$
   where fm.family_id = fam_id;
 $$;
 
--- tighten permissions
 revoke all on function public.get_family_members_with_email(uuid) from public;
 grant execute on function public.get_family_members_with_email(uuid) to anon, authenticated;
