@@ -39,7 +39,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     persistSession: true,
     autoRefreshToken: true,
     // detectSessionInUrl is critical for OAuth to work!
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
     // flowType 'pkce' is more secure
     flowType: 'pkce',
   }
