@@ -6,8 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Camera, User, Mail, Trash2, Save, LogOut } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Camera, User, Mail, Trash2, Save, LogOut, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const ProfilePage = () => {
@@ -28,14 +38,13 @@ const ProfilePage = () => {
       setUserId(user.id);
       setEmail(user.email || "");
 
-      // Fetch profile data
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("full_name, avatar_url")
         .eq("id", user.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') throw profileError;
+      if (profileError && profileError.code !== "PGRST116") throw profileError;
 
       if (profile) {
         setFullName(profile.full_name || "");
@@ -53,7 +62,6 @@ const ProfilePage = () => {
 
   useEffect(() => {
     loadProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUpdateProfile = async () => {
@@ -98,21 +106,15 @@ const ProfilePage = () => {
       const fileExt = file.name.split(".").pop();
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
-      // Upload image to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(fileName);
-
+      const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
       setAvatarUrl(data.publicUrl);
 
-      // Auto-save the profile with new avatar
       await supabase
         .from("profiles")
         .upsert({
@@ -141,15 +143,10 @@ const ProfilePage = () => {
   const handleDeleteAccount = async () => {
     try {
       setLoading(true);
-
-      // Note: Actual account deletion should be done server-side for security
-      // This is a placeholder - you'll need to implement a server function
       toast({
         title: "Account Deletion",
         description: "Please contact support to delete your account.",
       });
-
-      // For now, just sign out
       await supabase.auth.signOut();
       navigate("/");
     } catch (error: any) {
@@ -185,19 +182,33 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
+
+        {/* Header with Back Button */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Profile Settings</h1>
-            <p className="text-muted-foreground">Manage your account information</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => navigate(-1)} // or navigate("/dashboard")
+              aria-label="Go back"
+              title="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="ml-1">
+              <h1 className="text-3xl font-bold leading-tight">Profile Settings</h1>
+              <p className="text-muted-foreground">Manage your account information</p>
+            </div>
           </div>
+
           <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>
         </div>
 
-        {/* Profile Picture Card */}
+        {/* Profile Picture */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -237,7 +248,7 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
-        {/* Personal Information Card */}
+        {/* Personal Info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -262,13 +273,7 @@ const ProfilePage = () => {
                 <Mail className="h-4 w-4" />
                 Email
               </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                disabled
-                className="bg-muted"
-              />
+              <Input id="email" type="email" value={email} disabled className="bg-muted" />
               <p className="text-xs text-muted-foreground">
                 Email cannot be changed
               </p>
@@ -281,7 +286,7 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
-        {/* Danger Zone Card */}
+        {/* Danger Zone */}
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
