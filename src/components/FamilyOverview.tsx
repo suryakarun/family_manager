@@ -30,11 +30,17 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [familyName, setFamilyName] = useState<string>("");
   const [inviteLink, setInviteLink] = useState<string>("");
+  const [inviteToken, setInviteToken] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [familyOwnerId, setFamilyOwnerId] = useState<string>("");
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
 
   const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
+
+  // Generate a random token
+  const generateToken = () => {
+    return crypto.randomUUID();
+  };
 
   useEffect(() => {
     if (!familyId) return;
@@ -45,11 +51,26 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
       const { data: fam } = await supabase
         .from("families")
-        .select("name, admin_user_id")
+        .select("name, admin_user_id, invite_token")
         .eq("id", familyId)
         .single();
+      
       setFamilyName(fam?.name ?? "");
       setFamilyOwnerId(fam?.admin_user_id ?? "");
+      
+      let token = fam?.invite_token;
+      
+      // If no token exists, generate one
+      if (!token) {
+        token = generateToken();
+        await supabase
+          .from("families")
+          .update({ invite_token: token })
+          .eq("id", familyId);
+      }
+      
+      setInviteToken(token);
+      setInviteLink(`${siteUrl}/join-family/${familyId}/${token}`);
 
       const { data: fm } = await supabase
         .from("family_members")
@@ -64,8 +85,6 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
           membershipId: r.id,
         }))
       );
-
-      setInviteLink(`${siteUrl}/join-family/${familyId}`);
     };
 
     load();
@@ -85,8 +104,30 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
   };
 
   const refreshLink = async () => {
-    setInviteLink(`${siteUrl}/join-family/${familyId}?t=${Date.now()}`);
-    toast({ title: "Invite refreshed" });
+    try {
+      const newToken = generateToken();
+      
+      const { error } = await supabase
+        .from("families")
+        .update({ invite_token: newToken })
+        .eq("id", familyId);
+      
+      if (error) throw error;
+      
+      setInviteToken(newToken);
+      setInviteLink(`${siteUrl}/join-family/${familyId}/${newToken}`);
+      
+      toast({ 
+        title: "Invite link refreshed",
+        description: "Old invite links will no longer work."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh invite link.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Short display for mobile chip
