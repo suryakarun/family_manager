@@ -31,30 +31,46 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) return;
 
-      // Fetch all RSVPs for this event with user details
-      const { data: rsvps, error } = await supabase
+      // Fetch all RSVPs for this event
+      const { data: rsvps, error: rsvpError } = await supabase
         .from("event_invites")
-        .select(`
-          user_id,
-          status,
-          rsvp_at,
-          profiles:user_id (
-            full_name,
-            email
-          )
-        `)
+        .select("user_id, status, rsvp_at")
         .eq("event_id", eventId);
 
-      if (error) throw error;
+      if (rsvpError) {
+        console.error("Error fetching RSVPs:", rsvpError);
+        return;
+      }
 
-      // Format the data
-      const formattedRSVPs: RSVPStatus[] = rsvps?.map((rsvp: any) => ({
-        user_id: rsvp.user_id,
-        status: rsvp.status,
-        rsvp_at: rsvp.rsvp_at,
-        user_name: rsvp.profiles?.full_name || "Unknown",
-        user_email: rsvp.profiles?.email || "",
-      })) || [];
+      if (!rsvps || rsvps.length === 0) {
+        setAllRSVPs([]);
+        setCurrentUserStatus(null);
+        return;
+      }
+
+      // Fetch user profiles separately
+      const userIds = rsvps.map(r => r.user_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      if (profileError) {
+        console.error("Error fetching profiles:", profileError);
+        return;
+      }
+
+      // Combine RSVPs with profile data
+      const formattedRSVPs: RSVPStatus[] = rsvps.map((rsvp: any) => {
+        const profile = profiles?.find(p => p.id === rsvp.user_id);
+        return {
+          user_id: rsvp.user_id,
+          status: rsvp.status,
+          rsvp_at: rsvp.rsvp_at,
+          user_name: profile?.full_name || "Unknown",
+          user_email: profile?.email || "",
+        };
+      });
 
       setAllRSVPs(formattedRSVPs);
 
