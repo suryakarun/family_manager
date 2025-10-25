@@ -26,13 +26,10 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          
-          {/*
-            Invite routes:
-            - with optional token: /join-family/:familyId or /join-family/:familyId/:inviteToken
-            - legacy bare path: /join-family (kept for backward compatibility)
-          */}
-          <Route path="/join-family/:familyId/:inviteToken?" element={<JoinFamily />} />
+
+          {/* Invite links (v6 has no optional params, so declare both) */}
+          <Route path="/join-family/:inviteToken" element={<JoinFamily />} />
+          <Route path="/join-family/:familyId/:inviteToken" element={<JoinFamily />} />
           <Route path="/join-family" element={<JoinFamily />} />
 
           <Route path="/profile" element={<Profile />} />

@@ -1,37 +1,52 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Users, CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 const JoinFamily = () => {
-  const { familyId, inviteToken } = useParams<{ familyId: string; inviteToken: string }>();
+  const { familyId: familyIdFromUrl, inviteToken } = useParams<{
+    familyId?: string;
+    inviteToken?: string;
+  }>();
+
   const [loading, setLoading] = useState(true);
   const [familyName, setFamilyName] = useState("");
+  const [familyId, setFamilyId] = useState<string | null>(
+    familyIdFromUrl ?? null
+  );
   const [error, setError] = useState("");
   const [joined, setJoined] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!familyId || !inviteToken) {
-      setError("Invalid invite link - missing required information");
+    if (!inviteToken) {
+      setError("Invalid invite link - missing invite token");
       setLoading(false);
       return;
     }
-
     validateInviteAndFetchFamily();
-  }, [familyId, inviteToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteToken, familyIdFromUrl]);
 
   const validateInviteAndFetchFamily = async () => {
     try {
-      // Use secure RPC function to validate token and get family details
-      const { data, error } = await (supabase as any).rpc('get_family_by_invite_token', {
-        token_param: inviteToken
-      });
-
+      // Validate token and fetch family via RPC
+      const { data, error } = await (supabase as any).rpc(
+        "get_family_by_invite_token",
+        { token_param: inviteToken }
+      );
       if (error) throw error;
 
       if (!data || data.length === 0) {
@@ -40,15 +55,17 @@ const JoinFamily = () => {
         return;
       }
 
-      // Verify the family_id matches
-      const familyData = data[0];
-      if (familyData.family_id !== familyId) {
+      const fam = data[0];
+
+      // If URL has familyId, ensure it matches; otherwise adopt from RPC
+      if (familyIdFromUrl && fam.family_id !== familyIdFromUrl) {
         setError("Invalid invite link - family mismatch");
         setLoading(false);
         return;
       }
 
-      setFamilyName(familyData.family_name);
+      setFamilyId(fam.family_id);
+      setFamilyName(fam.family_name || "this family");
       setLoading(false);
     } catch (err) {
       console.error("Error validating invite:", err);
@@ -59,25 +76,30 @@ const JoinFamily = () => {
 
   const joinFamily = async () => {
     if (!familyId) return;
-    
+
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
-        // Store the invite URL to redirect after login
-        sessionStorage.setItem('pendingInvite', window.location.pathname);
+        // preserve full URL to return after auth
+        sessionStorage.setItem(
+          "pendingInvite",
+          location.pathname + location.search
+        );
         navigate("/auth");
         return;
       }
 
-      // Check if already a member
+      // Already a member?
       const { data: existing } = await supabase
         .from("family_members")
         .select("id")
         .eq("family_id", familyId)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         toast({
@@ -88,25 +110,19 @@ const JoinFamily = () => {
         return;
       }
 
-      // Add as family member
+      // Add as member
       const { error } = await supabase.from("family_members").insert({
         family_id: familyId,
         user_id: user.id,
         role: "member",
         status: "active",
       });
-
       if (error) throw error;
 
       setJoined(true);
-      toast({
-        title: "Success!",
-        description: `You've joined ${familyName}`,
-      });
+      toast({ title: "Success!", description: `You've joined ${familyName}` });
 
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 2000);
+      setTimeout(() => navigate("/dashboard"), 1500);
     } catch (err: any) {
       toast({
         title: "Error",
@@ -142,7 +158,8 @@ const JoinFamily = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground text-center">
-                This invite link may have expired or been regenerated by the family owner.
+                This invite link may have expired or been regenerated by the
+                family owner.
               </p>
               <Button onClick={() => navigate("/auth")} className="w-full">
                 Go to Sign In
@@ -180,12 +197,13 @@ const JoinFamily = () => {
             <CardContent className="space-y-4">
               <div className="bg-muted p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  🔒 This invite is specific to <strong>{familyName}</strong>. 
+                  🔒 This invite is specific to <strong>{familyName}</strong>.
                   You'll only see this family's events and calendar.
                 </p>
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                By joining, you'll be able to view and manage shared family events
+                By joining, you'll be able to view and manage shared family
+                events
               </p>
               <Button onClick={joinFamily} disabled={loading} className="w-full">
                 {loading ? (
@@ -197,7 +215,11 @@ const JoinFamily = () => {
                   "Join Family"
                 )}
               </Button>
-              <Button onClick={() => navigate("/auth")} variant="outline" className="w-full">
+              <Button
+                onClick={() => navigate("/auth")}
+                variant="outline"
+                className="w-full"
+              >
                 Cancel
               </Button>
             </CardContent>
