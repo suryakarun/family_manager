@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Copy, RefreshCcw, Trash2 } from "lucide-react";
+import { Copy, RefreshCcw, Trash2, Share2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
   AlertDialog,
@@ -18,11 +18,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Member = { 
-  id: string; 
-  name: string; 
-  role: "owner"|"admin"|"member"|string;
-  membershipId?: string; // We need this to delete from family_members table
+type Member = {
+  id: string;
+  name: string;
+  role: "owner" | "admin" | "member" | string;
+  membershipId?: string;
 };
 
 export default function FamilyOverview({ familyId }: { familyId: string }) {
@@ -40,27 +40,30 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
     if (!familyId) return;
 
     const load = async () => {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUserId(user?.id || "");
 
-      // Get family info including owner
-      const { data: fam } = await supabase.from("families")
-        .select("name, admin_user_id").eq("id", familyId).single();
+      const { data: fam } = await supabase
+        .from("families")
+        .select("name, admin_user_id")
+        .eq("id", familyId)
+        .single();
       setFamilyName(fam?.name ?? "");
       setFamilyOwnerId(fam?.admin_user_id ?? "");
 
-      // Get family members with their membership IDs
-      const { data: fm } = await supabase.from("family_members")
+      const { data: fm } = await supabase
+        .from("family_members")
         .select(`id, user_id, role, profiles:profiles ( id, full_name )`)
         .eq("family_id", familyId);
 
-      setMembers((fm || []).map((r: any) => ({
-        id: r.profiles?.id || r.user_id,
-        name: r.profiles?.full_name || "User",
-        role: r.role || "member",
-        membershipId: r.id, // Store the family_members.id for deletion
-      })));
+      setMembers(
+        (fm || []).map((r: any) => ({
+          id: r.profiles?.id || r.user_id,
+          name: r.profiles?.full_name || "User",
+          role: r.role || "member",
+          membershipId: r.id,
+        }))
+      );
 
       setInviteLink(`${siteUrl}/join-family/${familyId}`);
     };
@@ -73,13 +76,46 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
       await navigator.clipboard.writeText(inviteLink);
       toast({ title: "Copied", description: "Invite link copied." });
     } catch {
-      toast({ title: "Copy failed", description: "Could not copy link.", variant: "destructive" });
+      toast({
+        title: "Copy failed",
+        description: "Could not copy link.",
+        variant: "destructive",
+      });
     }
   };
 
   const refreshLink = async () => {
     setInviteLink(`${siteUrl}/join-family/${familyId}?t=${Date.now()}`);
     toast({ title: "Invite refreshed" });
+  };
+
+  // Short display for mobile chip
+  const shortUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      const path = `${u.hostname}${u.pathname}`.replace(/^www\./, "");
+      return path.length > 36 ? path.slice(0, 33) + "…" : path;
+    } catch {
+      return url.length > 36 ? url.slice(0, 33) + "…" : url;
+    }
+  };
+
+  const shareInvite = async () => {
+    const text = `Join our family on Family Calendar:\n${inviteLink}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Family Calendar Invite",
+          text,
+          url: inviteLink,
+        });
+        return;
+      }
+    } catch {
+      // fall through to WhatsApp
+    }
+    const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(wa, "_blank");
   };
 
   const handleDeleteMember = async () => {
@@ -93,9 +129,7 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
       if (error) throw error;
 
-      // Remove from local state
-      setMembers(prev => prev.filter(m => m.id !== deletingMember.id));
-
+      setMembers((prev) => prev.filter((m) => m.id !== deletingMember.id));
       toast({
         title: "Member removed",
         description: `${deletingMember.name} has been removed from the family.`,
@@ -113,14 +147,17 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
   };
 
   const getInitials = (name: string) =>
-    name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const sorted = useMemo(() => {
     const rank: Record<string, number> = { owner: 0, admin: 1, member: 2 };
-    return [...members].sort((a,b) => (rank[a.role]??9) - (rank[b.role]??9) || a.name.localeCompare(b.name));
+    return [...members].sort(
+      (a, b) =>
+        (rank[a.role] ?? 9) - (rank[b.role] ?? 9) ||
+        a.name.localeCompare(b.name)
+    );
   }, [members]);
 
-  // Check if current user is the owner
   const isOwner = currentUserId === familyOwnerId;
 
   return (
@@ -141,11 +178,41 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
           <div className="md:col-span-2">
             <div className="text-sm text-muted-foreground mb-1">Invite Link</div>
-            <div className="flex items-center gap-2">
+
+            {/* Desktop: full input */}
+            <div className="hidden md:flex items-center gap-2">
               <Input value={inviteLink} readOnly className="truncate" />
-              <Button size="sm" onClick={copyLink}><Copy className="h-4 w-4" /></Button>
-              <Button size="sm" variant="ghost" onClick={refreshLink}><RefreshCcw className="h-4 w-4" /></Button>
+              <Button size="sm" onClick={copyLink}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={refreshLink}>
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
             </div>
+
+            {/* Mobile: compact layout */}
+            <div className="md:hidden space-y-2">
+              <div className="px-3 py-2 rounded-md bg-muted text-sm font-medium">
+                {shortUrl(inviteLink)}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button className="flex-1" variant="outline" onClick={copyLink}>
+                  <Copy className="h-4 w-4 mr-2" /> Copy
+                </Button>
+                <Button className="flex-1" onClick={shareInvite}>
+                  <Share2 className="h-4 w-4 mr-2" /> Share via WhatsApp
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={refreshLink}
+                  aria-label="Refresh link"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
             <div className="text-xs text-muted-foreground mt-1">
               Members who join via this link will only see this family.
             </div>
@@ -157,41 +224,57 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
             <h3 className="text-base font-semibold">Family Members</h3>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {sorted.length ? sorted.map(m => (
-              <div key={m.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border group">
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback className="text-xs">{getInitials(m.name)}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium">{m.name}</span>
-                <Badge variant={m.role === "owner" ? "secondary" : "outline"} className="text-xs">
-                  {m.role.charAt(0).toUpperCase()+m.role.slice(1)}
-                </Badge>
-                
-                {/* Delete button - only show if user is owner and member is not the owner */}
-                {isOwner && m.id !== familyOwnerId && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-5 w-5 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setDeletingMember(m)}
+            {sorted.length ? (
+              sorted.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border group"
+                >
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">
+                      {getInitials(m.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{m.name}</span>
+                  <Badge
+                    variant={m.role === "owner" ? "secondary" : "outline"}
+                    className="text-xs"
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            )) : <div className="text-sm text-muted-foreground">No members yet.</div>}
+                    {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
+                  </Badge>
+
+                  {/* Owner can remove non-owner members */}
+                  {isOwner && m.id !== familyOwnerId && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 w-5 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeletingMember(m)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-muted-foreground">No members yet.</div>
+            )}
           </div>
         </div>
       </Card>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={!!deletingMember} onOpenChange={(open) => !open && setDeletingMember(null)}>
+      {/* Confirm removal */}
+      <AlertDialog
+        open={!!deletingMember}
+        onOpenChange={(open) => !open && setDeletingMember(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Member?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{deletingMember?.name}</strong> from this family?
-              They will lose access to all family events and data.
+              Are you sure you want to remove{" "}
+              <strong>{deletingMember?.name}</strong> from this family? They will
+              lose access to all family events and data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
