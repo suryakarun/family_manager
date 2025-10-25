@@ -11,9 +11,14 @@ language sql
 security definer
 set search_path = public, auth
 as $$
-  select fm.id, p.id, p.full_name, u.email, fm.role
+  select fm.id as family_member_id,
+    fm.user_id as user_id,
+    p.id as profile_id,
+    p.full_name,
+    u.email,
+    fm.role
   from public.family_members fm
-  join public.profiles p on p.id = fm.profile_id
+  join public.profiles p on p.id = fm.user_id
   join auth.users u on u.id = p.user_id
   where fm.family_id = fam_id;
 $$;
