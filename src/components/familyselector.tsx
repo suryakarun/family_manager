@@ -21,16 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Plus, Users, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface Family {
   id: string;
@@ -71,7 +61,6 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
-  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [inviteToken, setInviteToken] = useState<string>("");
 
   useEffect(() => {
@@ -129,7 +118,6 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
       
       setMembers(mapped);
       
-      // Set current user's role
       const currentMember = mapped.find(m => m.user_id === currentUserId);
       setCurrentUserRole(currentMember?.role || null);
     } catch (err) {
@@ -138,21 +126,25 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
     }
   };
 
-  const handleRemoveMember = async () => {
-    if (!selectedFamilyId || !memberToDelete) return;
+  const handleRemoveMember = async (memberId: string) => {
+    if (!selectedFamilyId) return;
+    
+    if (!window.confirm("Are you sure you want to remove this member? They will lose access to all family events and calendar.")) {
+      return;
+    }
+    
     setLoading(true);
     try {
       const { error } = await supabase
         .from("family_members")
         .delete()
-        .eq("id", memberToDelete.id)
+        .eq("id", memberId)
         .eq("family_id", selectedFamilyId);
       
       if (error) throw error;
       
       toast({ title: "Member removed successfully" });
       fetchMembers(selectedFamilyId);
-      setMemberToDelete(null);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
@@ -190,75 +182,99 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   };
 
   const createFamily = async () => {
-  if (!newFamilyName.trim()) return;
+    if (!newFamilyName.trim()) {
+      toast({
+        title: "Family name required",
+        description: "Please enter a family name",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  setLoading(true);
-  try {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error("No user found");
+    setLoading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+      if (!user) throw new Error("No user found");
 
-    // Generate invite token on client side
-    const tokenArray = new Uint8Array(16);
-    crypto.getRandomValues(tokenArray);
-    const inviteToken = Array.from(tokenArray)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+      const tokenArray = new Uint8Array(16);
+      crypto.getRandomValues(tokenArray);
+      const inviteToken = Array.from(tokenArray)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
-    console.log('Creating family with token:', inviteToken); // Debug log
-
-    // Create family with invite token
-    const { data: family, error: familyError } = await supabase
-      .from("families")
-      .insert({
+      console.log('Creating family:', {
         name: newFamilyName.trim(),
         admin_user_id: user.id,
-        invite_token: inviteToken,
-      })
-      .select()
-      .single();
-
-    if (familyError) {
-      console.error('Family creation error:', familyError);
-      throw familyError;
-    }
-
-    console.log('Family created:', family); // Debug log
-
-    // Add creator as member
-    const { error: memberError } = await supabase
-      .from("family_members")
-      .insert({
-        family_id: family.id,
-        user_id: user.id,
-        role: "admin",
+        invite_token: inviteToken
       });
 
-    if (memberError) {
-      console.error('Member creation error:', memberError);
-      throw memberError;
+      const { data: family, error: familyError } = await supabase
+        .from("families")
+        .insert({
+          name: newFamilyName.trim(),
+          admin_user_id: user.id,
+          invite_token: inviteToken,
+        })
+        .select()
+        .single();
+
+      if (familyError) {
+        console.error('Family creation error:', familyError);
+        throw new Error(familyError.message || 'Failed to create family');
+      }
+
+      if (!family) {
+        throw new Error('Family created but no data returned');
+      }
+
+      console.log('Family created successfully:', family);
+
+      const { error: memberError } = await supabase
+        .from("family_members")
+        .insert({
+          family_id: family.id,
+          user_id: user.id,
+          role: "admin",
+        });
+
+      if (memberError) {
+        console.error('Member creation error:', memberError);
+        throw new Error(memberError.message || 'Failed to add family member');
+      }
+
+      toast({
+        title: "Family created!",
+        description: `${newFamilyName} has been created successfully`,
+      });
+
+      setNewFamilyName("");
+      setIsDialogOpen(false);
+      await fetchFamilies();
+      onSelectFamily(family.id);
+    } catch (error: any) {
+      console.error('Full error object:', error);
+      
+      let errorMessage = 'Failed to create family';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.error_description) {
+        errorMessage = error.error_description;
+      }
+      
+      toast({
+        title: "Error creating family",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Family created!",
-      description: `${newFamilyName} has been created successfully`,
-    });
-
-    setNewFamilyName("");
-    setIsDialogOpen(false);
-    await fetchFamilies();
-    onSelectFamily(family.id);
-  } catch (error: any) {
-    console.error('Full error:', error);
-    const errorMessage = error?.message || error?.error_description || String(error);
-    toast({
-      title: "Error creating family",
-      description: errorMessage,
-      variant: "destructive",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const generateInviteLink = () => {
     if (!selectedFamilyId || !inviteToken) return "";
@@ -277,6 +293,10 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
 
   const regenerateInviteToken = async () => {
     if (!selectedFamilyId || currentUserRole !== "admin") return;
+    
+    if (!window.confirm("Are you sure? This will invalidate the current invite link and create a new one.")) {
+      return;
+    }
     
     setLoading(true);
     try {
@@ -306,7 +326,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <Select value={selectedFamilyId || undefined} onValueChange={onSelectFamily}>
+        <Select value={selectedFamilyId || ""} onValueChange={onSelectFamily}>
           <SelectTrigger className="w-[200px]">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -358,7 +378,6 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
         </Dialog>
       </div>
 
-      {/* Invite link section - only for owners */}
       {selectedFamilyId && currentUserRole === "admin" && inviteToken && (
         <div className="mt-2 border rounded p-3 bg-muted/50">
           <div className="font-semibold mb-2 text-sm">Family Invite Link</div>
@@ -387,7 +406,6 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
         </div>
       )}
 
-      {/* Member management section */}
       {selectedFamilyId && (
         <div className="mt-2 border rounded p-3 bg-muted">
           <div className="font-semibold mb-2">Family Members</div>
@@ -402,7 +420,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setMemberToDelete(member)}
+                    onClick={() => handleRemoveMember(member.id)}
                     disabled={loading}
                     className="h-8 px-2"
                   >
@@ -414,25 +432,6 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
           </ul>
         </div>
       )}
-
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Family Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove {memberToDelete?.profiles?.full_name || "this member"} from the family? 
-              They will lose access to all family events and calendar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveMember} className="bg-destructive text-destructive-foreground">
-              Remove Member
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
