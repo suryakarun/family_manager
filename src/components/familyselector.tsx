@@ -81,7 +81,7 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
       // rpc returns rows with columns: family_member_id, profile_id, full_name, email, role
       const mapped = (data || []).map((row: any) => ({
         id: row.family_member_id,
-        user_id: row.profile_id,
+        user_id: row.user_id,
         role: row.role,
         profiles: {
           full_name: row.full_name,
