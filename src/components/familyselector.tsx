@@ -190,64 +190,75 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   };
 
   const createFamily = async () => {
-    if (!newFamilyName.trim()) return;
+  if (!newFamilyName.trim()) return;
 
-    setLoading(true);
-    try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("No user found");
+  setLoading(true);
+  try {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("No user found");
 
-      // Generate invite token
-      const inviteToken = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+    // Generate invite token on client side
+    const tokenArray = new Uint8Array(16);
+    crypto.getRandomValues(tokenArray);
+    const inviteToken = Array.from(tokenArray)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
 
-      // Create family
-      const { data: family, error: familyError } = await supabase
-        .from("families")
-        .insert([
-          {
-            name: newFamilyName,
-            admin_user_id: user.id,
-            invite_token: inviteToken,
-          },
-        ])
-        .select()
-        .single();
+    console.log('Creating family with token:', inviteToken); // Debug log
 
-      if (familyError) throw familyError;
+    // Create family with invite token
+    const { data: family, error: familyError } = await supabase
+      .from("families")
+      .insert({
+        name: newFamilyName.trim(),
+        admin_user_id: user.id,
+        invite_token: inviteToken,
+      })
+      .select()
+      .single();
 
-      // Add creator as member
-      const { error: memberError } = await supabase.from("family_members").insert([
-        {
-          family_id: family.id,
-          user_id: user.id,
-          role: "admin",
-        },
-      ]);
-
-      if (memberError) throw memberError;
-
-      toast({
-        title: "Family created!",
-        description: `${newFamilyName} has been created successfully`,
-      });
-
-      setNewFamilyName("");
-      setIsDialogOpen(false);
-      fetchFamilies();
-      onSelectFamily(family.id);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (familyError) {
+      console.error('Family creation error:', familyError);
+      throw familyError;
     }
-  };
+
+    console.log('Family created:', family); // Debug log
+
+    // Add creator as member
+    const { error: memberError } = await supabase
+      .from("family_members")
+      .insert({
+        family_id: family.id,
+        user_id: user.id,
+        role: "admin",
+      });
+
+    if (memberError) {
+      console.error('Member creation error:', memberError);
+      throw memberError;
+    }
+
+    toast({
+      title: "Family created!",
+      description: `${newFamilyName} has been created successfully`,
+    });
+
+    setNewFamilyName("");
+    setIsDialogOpen(false);
+    await fetchFamilies();
+    onSelectFamily(family.id);
+  } catch (error: any) {
+    console.error('Full error:', error);
+    const errorMessage = error?.message || error?.error_description || String(error);
+    toast({
+      title: "Error creating family",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const generateInviteLink = () => {
     if (!selectedFamilyId || !inviteToken) return "";
