@@ -121,3 +121,20 @@
 .dark .fc-dark-skin .fc .fc-button-primary:hover {
   background-color: hsl(var(--primary) / 0.9) !important;
 }
+
+/* Stronger override: force header background and make day names visible */
+.dark .fc-dark-skin .fc .fc-col-header,
+.dark .fc-dark-skin .fc .fc-col-header-cell,
+.dark .fc-dark-skin .fc .fc-col-header-cell-cushion,
+.dark .fc-dark-skin .fc .fc-col-header th,
+.dark .fc-dark-skin .fc .fc-col-header td {
+  background-color: hsl(var(--background)) !important;
+}
+.dark .fc-dark-skin .fc .fc-col-header-cell-cushion,
+.dark .fc-dark-skin .fc .fc-col-header-cell,
+.dark .fc-dark-skin .fc .fc-col-header th,
+.dark .fc-dark-skin .fc .fc-col-header td {
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+  font-weight: 700 !important;
+}
