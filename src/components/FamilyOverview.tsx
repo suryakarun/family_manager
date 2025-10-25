@@ -47,30 +47,60 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log("=== AUTH DEBUG ===");
+      console.log("Current user ID:", user?.id);
+      console.log("Current user email:", user?.email);
+      console.log("==================");
+      
       setCurrentUserId(user?.id || "");
 
-      const { data: fam } = await supabase
+      const { data: fam, error: famError } = await supabase
         .from("families")
         .select("name, admin_user_id, invite_token")
         .eq("id", familyId)
         .single();
+      
+      console.log("=== FAMILY DEBUG ===");
+      console.log("Family ID:", familyId);
+      console.log("Family data:", fam);
+      console.log("Family error:", famError);
+      console.log("Admin user ID:", fam?.admin_user_id);
+      console.log("Invite token from DB:", fam?.invite_token);
+      console.log("Is current user admin?", user?.id === fam?.admin_user_id);
+      console.log("====================");
       
       setFamilyName(fam?.name ?? "");
       setFamilyOwnerId(fam?.admin_user_id ?? "");
       
       let token = fam?.invite_token;
       
+      console.log("=== TOKEN DEBUG ===");
+      console.log("Token value:", token);
+      console.log("Token is truthy?", !!token);
+      
       // If no token exists, generate one
       if (!token) {
+        console.log("No token found, generating new one...");
         token = generateToken();
-        await supabase
+        console.log("New token generated:", token);
+        
+        const { data: updateData, error: updateError } = await supabase
           .from("families")
           .update({ invite_token: token })
-          .eq("id", familyId);
+          .eq("id", familyId)
+          .select();
+        
+        console.log("Token update result:", updateData);
+        console.log("Token update error:", updateError);
       }
       
       setInviteToken(token);
-      setInviteLink(`${siteUrl}/join-family/${familyId}/${token}`);
+      const finalLink = `${siteUrl}/join-family/${familyId}/${token}`;
+      console.log("Final invite link:", finalLink);
+      console.log("===================");
+      
+      setInviteLink(finalLink);
 
       const { data: fm } = await supabase
         .from("family_members")
@@ -92,6 +122,7 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
   const copyLink = async () => {
     try {
+      console.log("Copying link:", inviteLink);
       await navigator.clipboard.writeText(inviteLink);
       toast({ title: "Copied", description: "Invite link copied." });
     } catch {
@@ -106,13 +137,17 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
   const refreshLink = async () => {
     try {
       const newToken = generateToken();
+      console.log("Refreshing link with new token:", newToken);
       
       const { error } = await supabase
         .from("families")
         .update({ invite_token: newToken })
         .eq("id", familyId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error refreshing token:", error);
+        throw error;
+      }
       
       setInviteToken(newToken);
       setInviteLink(`${siteUrl}/join-family/${familyId}/${newToken}`);
@@ -122,6 +157,7 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
         description: "Old invite links will no longer work."
       });
     } catch (error) {
+      console.error("Refresh error:", error);
       toast({
         title: "Error",
         description: "Failed to refresh invite link.",
