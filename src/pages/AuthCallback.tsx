@@ -32,7 +32,7 @@ export default function AuthCallback() {
 
         if (code) {
           // Exchange the PKCE code ONCE
-          const { error } = await supabase.auth.exchangeCodeForSession({ code!});
+          const { error } = await supabase.auth.exchangeCodeForSession({ code });
 
           // Strip ?code from the URL immediately, stay on /auth/callback
           window.history.replaceState({}, "", url.origin + "/auth/callback");
