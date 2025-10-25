@@ -83,7 +83,11 @@
 }
 
 /* Header day names */
+.dark .fc-dark-skin .fc .fc-col-header,
+.dark .fc-dark-skin .fc .fc-col-header-cell,
 .dark .fc-dark-skin .fc .fc-col-header-cell-cushion {
+  /* Ensure the header uses the same dark background and has readable text */
+  background-color: hsl(var(--background)) !important;
   color: hsl(var(--muted-foreground)) !important;
   font-weight: 600;
 }
