@@ -207,7 +207,7 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
 
       {/* Response Summary */}
       {allRSVPs.length > 0 && (
-        <div className="space-y-3 pt-2 border-t">
+        <div className="space-y-4 pt-2 border-t">
           <div className="flex items-center justify-around text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-600"></div>
@@ -229,21 +229,28 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
           {/* Show who's going */}
           {goingCount > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Going</p>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                <p className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase">
+                  Going ({goingCount})
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {allRSVPs
                   .filter(r => r.status === "accepted")
                   .map((rsvp) => (
                     <div
                       key={rsvp.user_id}
-                      className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800"
                     >
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs bg-green-600 text-white">
                           {getInitials(rsvp.user_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium">{rsvp.user_name}</span>
+                      <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                        {rsvp.user_name}
+                      </span>
                     </div>
                   ))}
               </div>
@@ -253,21 +260,59 @@ const EventRSVP = ({ eventId, familyId, eventTitle, eventStartTime }: EventRSVPP
           {/* Show who's maybe */}
           {maybeCount > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Maybe</p>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-600"></div>
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase">
+                  Maybe ({maybeCount})
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {allRSVPs
                   .filter(r => r.status === "pending")
                   .map((rsvp) => (
                     <div
                       key={rsvp.user_id}
-                      className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800"
                     >
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs bg-amber-600 text-white">
                           {getInitials(rsvp.user_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium">{rsvp.user_name}</span>
+                      <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        {rsvp.user_name}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Show who's not going - THIS IS NEW */}
+          {notGoingCount > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase">
+                  Not Going ({notGoingCount})
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {allRSVPs
+                  .filter(r => r.status === "declined")
+                  .map((rsvp) => (
+                    <div
+                      key={rsvp.user_id}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800"
+                    >
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-xs bg-red-600 text-white">
+                          {getInitials(rsvp.user_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-red-900 dark:text-red-100">
+                        {rsvp.user_name}
+                      </span>
                     </div>
                   ))}
               </div>
