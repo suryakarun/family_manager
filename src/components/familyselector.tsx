@@ -43,6 +43,16 @@ interface FamilyMember {
   };
 }
 
+// RPC return type for get_family_members_with_email
+interface GetFamilyMembersRow {
+  family_member_id: string;
+  user_id: string;
+  profile_id: string;
+  full_name: string;
+  email: string | null;
+  role: string;
+}
+
 const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProps) => {
   const [families, setFamilies] = useState<Family[]>([]);
   const [newFamilyName, setNewFamilyName] = useState("");
@@ -71,21 +81,22 @@ const FamilySelector = ({ selectedFamilyId, onSelectFamily }: FamilySelectorProp
   const fetchMembers = async (familyId: string) => {
     // Use secure RPC that joins profiles -> auth.users to get email without exposing auth table to client
     try {
-      const { data, error } = await supabase.rpc('get_family_members_with_email', { fam_id: familyId });
+  const res = (await (supabase as any).rpc('get_family_members_with_email', { fam_id: familyId })) as unknown as { data: GetFamilyMembersRow[] | null; error: any };
+      const { data, error } = res;
       if (error) {
         console.error('Error fetching members via RPC:', error);
         setMembers([]);
         return;
       }
 
-      // rpc returns rows with columns: family_member_id, profile_id, full_name, email, role
-      const mapped = (data || []).map((row: any) => ({
+      // rpc returns rows with columns: family_member_id, user_id, profile_id, full_name, email, role
+      const mapped = (data ?? []).map((row: GetFamilyMembersRow) => ({
         id: row.family_member_id,
         user_id: row.user_id,
         role: row.role,
         profiles: {
           full_name: row.full_name,
-          email: row.email,
+          email: row.email ?? undefined,
         },
       }));
       setMembers(mapped);
