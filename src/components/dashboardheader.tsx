@@ -42,17 +42,11 @@ const DashboardHeader = ({ session }: DashboardHeaderProps) => {
 
     fetchProfile();
 
-    // Subscribe to profile changes
     const channel = supabase
       .channel("profile-changes")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${session.user.id}`,
-        },
+        { event: "*", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
         (payload) => {
           if (payload.new && typeof payload.new === "object") {
             const newData = payload.new as any;
@@ -71,20 +65,12 @@ const DashboardHeader = ({ session }: DashboardHeaderProps) => {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
-    toast({
-      title: "Signed out",
-      description: "You have been signed out successfully",
-    });
+    toast({ title: "Signed out", description: "You have been signed out successfully" });
   };
 
   const userEmail = session.user.email;
   const userName = fullName || session.user.user_metadata?.full_name || "User";
-  const initials = userName
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
     <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -98,41 +84,42 @@ const DashboardHeader = ({ session }: DashboardHeaderProps) => {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          
+
           <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10 border-2 border-primary">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-                <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName}</p>
-                <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/profile")}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/profile")}>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Sign out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-10 w-10 border-2 border-primary">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{userName}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

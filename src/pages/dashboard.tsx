@@ -5,6 +5,7 @@ import { Session } from "@supabase/supabase-js";
 import DashboardHeader from "@/components/dashboardheader";
 import FamilySelector from "@/components/familyselector";
 import FamilyCalendar from "@/components/familycalendar";
+import FamilyOverview from "@/components/FamilyOverview";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,25 +18,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [familyStats, setFamilyStats] = useState({ events: 0, members: 0, rsvps: 0 });
-  const [travelPlan, setTravelPlan] = useState(null);
-  const [eventDetails, setEventDetails] = useState(null);
+  const [travelPlan, setTravelPlan] = useState<any>(null);
+  const [eventDetails, setEventDetails] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (!session) {
-        navigate("/auth");
-      }
+      if (!session) navigate("/auth");
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (!session) {
-        navigate("/auth");
-      }
+      if (!session) navigate("/auth");
     });
 
     return () => subscription.unsubscribe();
@@ -45,9 +42,23 @@ const Dashboard = () => {
     if (!selectedFamilyId) return;
 
     const [eventsResult, membersResult, rsvpsResult] = await Promise.all([
-      supabase.from("events").select("id", { count: "exact" }).eq("family_id", selectedFamilyId).gte("start_time", new Date().toISOString()),
-      supabase.from("family_members").select("id", { count: "exact" }).eq("family_id", selectedFamilyId),
-      supabase.from("event_invites").select("id", { count: "exact" }).eq("status", "pending")
+      supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("family_id", selectedFamilyId)
+        .gte("start_time", new Date().toISOString()),
+
+      supabase
+        .from("family_members")
+        .select("id", { count: "exact", head: true })
+        .eq("family_id", selectedFamilyId),
+
+      // pending RSVPs for events in THIS family only
+      supabase
+        .from("event_invites")
+        .select("id, events!inner(family_id)", { count: "exact", head: true })
+        .eq("status", "pending")
+        .eq("events.family_id", selectedFamilyId),
     ]);
 
     setFamilyStats({
@@ -58,9 +69,7 @@ const Dashboard = () => {
   }, [selectedFamilyId]);
 
   useEffect(() => {
-    if (selectedFamilyId) {
-      fetchFamilyStats();
-    }
+    if (selectedFamilyId) fetchFamilyStats();
   }, [selectedFamilyId, fetchFamilyStats]);
 
   if (loading) {
@@ -71,23 +80,25 @@ const Dashboard = () => {
     );
   }
 
-  if (!session) {
-    return null;
-  }
+  if (!session) return null;
 
   return (
     <div className="min-h-screen bg-gradient-soft">
       <DashboardHeader session={session} />
+
       <main className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
+        {/* Top row: welcome + family selector */}
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2 leading-tight truncate">
-              Welcome back, {session.user.user_metadata?.full_name || "User"}! <span className="inline-block align-middle">👋</span>
+              Welcome back, {session.user.user_metadata?.full_name || "User"}!{" "}
+              <span className="inline-block align-middle">👋</span>
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
               Manage your family's schedule and stay organized
             </p>
           </div>
+
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <FamilySelector selectedFamilyId={selectedFamilyId} onSelectFamily={setSelectedFamilyId} />
           </div>
@@ -109,6 +120,7 @@ const Dashboard = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Calendar */}
           <TabsContent value="calendar" className="space-y-2 sm:space-y-6 px-0">
             {selectedFamilyId ? (
               <FamilyCalendar familyId={selectedFamilyId} />
@@ -123,7 +135,10 @@ const Dashboard = () => {
             )}
           </TabsContent>
 
+          {/* Overview */}
           <TabsContent value="overview" className="space-y-6">
+            {selectedFamilyId && <FamilyOverview familyId={selectedFamilyId} />}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
@@ -144,29 +159,17 @@ const Dashboard = () => {
                 </CardHeader>
               </Card>
             </div>
-
-            <Card className="p-6">
-              <h3 className="text-xl font-semibold mb-2">Invite Management</h3>
-              <p className="text-muted-foreground text-sm">
-                Use the family selector above to manage members and generate invite links. 
-                Each family has its own unique invite link that only grants access to that specific family.
-              </p>
-            </Card>
           </TabsContent>
 
+          {/* AI Travel */}
           <TabsContent value="travel" className="space-y-6">
-            <TravelPlanner 
+            <TravelPlanner
               onPlanGenerated={(plan, details) => {
                 setTravelPlan(plan);
                 setEventDetails(details);
-              }} 
+              }}
             />
-            {travelPlan && (
-              <TravelPlanResults 
-                plan={travelPlan} 
-                eventDetails={eventDetails}
-              />
-            )}
+            {travelPlan && <TravelPlanResults plan={travelPlan} eventDetails={eventDetails} />}
           </TabsContent>
         </Tabs>
       </main>
