@@ -116,7 +116,8 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
   };
 
   const fetchEvents = useCallback(async () => {
-    const { data, error } = await supabase.from("events").select("*").eq("family_id", familyId);
+    // Use view that aggregates attendees when available so events carry attendee info
+    const { data, error } = await supabase.from("event_with_attendees").select("*").eq("family_id", familyId);
     if (error) { console.error(error); return; }
 
     const now = new Date();
@@ -124,7 +125,7 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
     const viewEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
 
     const all: CalendarEvent[] = [];
-    type DbEvent = { id: string; title: string; start_time: string; end_time: string; color?: string|null; description?: string|null; location?: string|null; recurrence_rule?: string|null; created_by: string };
+  type DbEvent = { id: string; title: string; start_time: string; end_time: string; color?: string|null; description?: string|null; location?: string|null; recurrence_rule?: string|null; created_by: string; attendees?: any };
 
     const creatorIds = Array.from(new Set(((data || []) as DbEvent[]).map(e => e.created_by).filter(Boolean)));
 
@@ -174,6 +175,7 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
             rsvp_going: c.going,
             rsvp_maybe: c.maybe,
             rsvp_not_going: c.not_going,
+            attendees: ev.attendees || null,
             creator_avatar_url: userIdToMember.get(ev.created_by)?.avatar_url || undefined,
             creator_name: userIdToMember.get(ev.created_by)?.display_name || undefined,
             creator_member_id: userIdToMember.get(ev.created_by)?.id,
@@ -185,6 +187,21 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
 
     setEvents(all);
   }, [familyId, props.members]);
+
+  // Visual cue: if the event has any required attendees, draw a left border
+  const handleEventDidMount = (info: { el: HTMLElement; event: EventApi }) => {
+    try {
+      const ex = (info.event.extendedProps as unknown) as EventExtendedProps & { attendees?: Array<{ member_id: string; required: boolean; driving_needed: boolean }> };
+      const hasRequired = Array.isArray(ex.attendees) && ex.attendees.some(a => a.required);
+      if (hasRequired) {
+        info.el.style.borderLeft = '4px solid rgba(255,255,255,0.6)';
+      } else {
+        info.el.style.borderLeft = '';
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     fetchEvents();
@@ -269,6 +286,7 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
           eventClick={handleEventClick}
           eventDrop={handleEventDrop}
           eventContent={renderEventContent}
+          eventDidMount={handleEventDidMount}
           height="auto"
         />
       </Card>
