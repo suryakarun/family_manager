@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, MapPin, Palette, Trash2, ListChecks, FileText, Bell, Sparkles, Camera } from "lucide-react";
+import { Calendar, Clock, MapPin, Trash2, ListChecks, FileText, Bell, Sparkles, Camera } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import EventRSVP from "@/components/eventrsvp";
 import EventGallery from "@/components/eventgallery";
@@ -41,14 +41,6 @@ interface EventModalProps {
   onEventSaved: () => void;
 }
 
-const COLORS = [
-  "#3b82f6", // blue
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#ef4444", // red
-];
 
 // Helper to format a Date object into YYYY-MM-DDTHH:MM for datetime-local input
 const formatForDateTimeLocal = (date: Date) => {
@@ -156,7 +148,7 @@ const EventModal = ({
   const [location, setLocation] = useState("");
   const [startTime, setStartTime] = useState(""); // This will hold YYYY-MM-DDTHH:MM local string
   const [endTime, setEndTime] = useState("");     // This will hold YYYY-MM-DDTHH:MM local string
-  const [color, setColor] = useState(COLORS[0]);
+  // Color selection removed from modal; events derive color from creator/member
   const [notes, setNotes] = useState("");
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -223,7 +215,7 @@ const EventModal = ({
     setLocation("");
     setStartTime("");
     setEndTime("");
-    setColor(COLORS[0]);
+  // color intentionally not set here; event color is determined by member/creator
     setNotes("");
     setChecklist([]);
     setNewChecklistItem("");
@@ -251,7 +243,8 @@ const EventModal = ({
         setEndTime(event.end ? formatForDateTimeLocal(new Date(event.end)) : "");
         // --- END MODIFIED ---
 
-        setColor(event.color || COLORS[0]);
+  // Do not allow editing event color from modal. Preserve existing event color in DB by
+  // not including it in update payload. We still load other editable fields here.
         setNotes(event.notes || "");
         setChecklist(event.checklist || []);
 
@@ -535,7 +528,6 @@ const EventModal = ({
         start_time: startDateTime.toISOString(), 
         end_time: endDateTime.toISOString(),
         // --- END Keep ---
-        color,
         user_id: user.id,
         created_by: user.id,
         notes,
@@ -910,25 +902,7 @@ const EventModal = ({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              Color
-            </Label>
-            <div className="flex gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  className={`w-10 h-10 rounded-full transition-transform ${
-                    color === c ? "scale-110 ring-2 ring-offset-2 ring-primary" : ""
-                  }`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
+          {/* Color selection removed from modal; event color is determined by creator/member */}
 
           <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <Label className="flex items-center gap-2 text-base font-semibold">
