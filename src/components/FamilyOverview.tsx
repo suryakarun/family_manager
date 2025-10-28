@@ -25,7 +25,14 @@ type Member = {
   membershipId?: string;
 };
 
-export default function FamilyOverview({ familyId }: { familyId: string }) {
+type MemberWithColor = {
+  id: string; // family_members.id
+  user_id?: string;
+  display_name?: string;
+  color?: string;
+  avatar_url?: string | null;
+};
+export default function FamilyOverview({ familyId, members: parentMembers, activeIds: parentActiveIds, onToggleMember }: { familyId: string; members?: MemberWithColor[]; activeIds?: Set<string>; onToggleMember?: (id: string) => void }) {
   const { toast } = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [familyName, setFamilyName] = useState<string>("");
@@ -34,6 +41,7 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [familyOwnerId, setFamilyOwnerId] = useState<string>("");
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
+  const [localActiveIds, setLocalActiveIds] = useState<Set<string>>(new Set());
 
   const siteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin;
 
@@ -44,7 +52,6 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
   useEffect(() => {
     if (!familyId) return;
-
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -102,19 +109,29 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
       
       setInviteLink(finalLink);
 
-      const { data: fm } = await supabase
-        .from("family_members")
-        .select(`id, user_id, role, profiles:profiles ( id, full_name )`)
-        .eq("family_id", familyId);
+      // If parent provided members (with colors), use them to populate list
+      if (parentMembers && parentMembers.length) {
+        setMembers(parentMembers.map((pm) => ({
+          id: pm.user_id || pm.id,
+          name: pm.display_name || "User",
+          role: "member",
+          membershipId: pm.id,
+        })));
+      } else {
+        const { data: fm } = await supabase
+          .from("family_members")
+          .select(`id, user_id, role, profiles:profiles ( id, full_name )`)
+          .eq("family_id", familyId);
 
-      setMembers(
-        (fm || []).map((r: any) => ({
-          id: r.profiles?.id || r.user_id,
-          name: r.profiles?.full_name || "User",
-          role: r.role || "member",
-          membershipId: r.id,
-        }))
-      );
+        setMembers(
+          (fm || []).map((r: any) => ({
+            id: r.profiles?.id || r.user_id,
+            name: r.profiles?.full_name || "User",
+            role: r.role || "member",
+            membershipId: r.id,
+          }))
+        );
+      }
     };
 
     load();
@@ -237,6 +254,17 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
 
   const isOwner = currentUserId === familyOwnerId;
 
+  const activeSet = parentActiveIds ?? localActiveIds;
+  const toggleMemberActive = (id: string) => {
+    if (onToggleMember) return onToggleMember(id);
+    setLocalActiveIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <>
       <Card className="p-5 space-y-5">
@@ -295,6 +323,28 @@ export default function FamilyOverview({ familyId }: { familyId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Legend area: show member color chips when parent provides members */}
+        {parentMembers && parentMembers.length > 0 && (
+          <div className="mb-4">
+            <div className="text-sm text-muted-foreground mb-2">Member colors</div>
+            <div className="flex flex-wrap gap-2">
+              {parentMembers.map((m) => {
+                const active = activeSet.has(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => toggleMemberActive(m.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all ${active ? "ring-2 ring-offset-1" : "bg-muted"}`}
+                  >
+                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: m.color || "#3B82F6" }} />
+                    <span className="text-sm">{m.display_name || "User"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between">
