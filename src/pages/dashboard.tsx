@@ -90,7 +90,9 @@ const Dashboard = () => {
         id: fm.id,
         user_id: fm.user_id,
         display_name: profileMap.get(fm.user_id)?.full_name || "",
-        color: fm.color || "#3B82F6",
+        // do NOT default missing DB colors to a single color here — leave undefined
+        // so the UI can apply a deterministic fallback palette per-member
+        color: fm.color ?? undefined,
         avatar_url: profileMap.get(fm.user_id)?.avatar_url || null,
       }));
 
