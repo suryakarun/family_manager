@@ -118,13 +118,14 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
           membershipId: pm.id,
         })));
       } else {
-        const { data: fm } = await supabase
+        const res = await supabase
           .from("family_members")
           .select(`id, user_id, role, profiles:profiles ( id, full_name )`)
           .eq("family_id", familyId);
+        const fm = (res.data || []) as Array<{ id: string; user_id: string; role?: string; profiles?: { id?: string; full_name?: string } }>;
 
         setMembers(
-          (fm || []).map((r: any) => ({
+          fm.map((r) => ({
             id: r.profiles?.id || r.user_id,
             name: r.profiles?.full_name || "User",
             role: r.role || "member",
@@ -135,7 +136,7 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
     };
 
     load();
-  }, [familyId, siteUrl]);
+  }, [familyId, siteUrl, parentMembers]);
 
   const copyLink = async () => {
     try {

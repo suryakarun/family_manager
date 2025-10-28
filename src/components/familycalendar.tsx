@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { EventApi } from "@fullcalendar/core";
 // MemberLegend moved to FamilyOverview; this component receives members via props
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -196,9 +197,9 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
 
   const handleDateClick = (arg: { date: Date }) => { setModalDate(arg.date); setSelectedEvent(undefined); setIsModalOpen(true); };
 
-  const handleEventClick = (clickInfo: { event: any }) => {
+  const handleEventClick = (clickInfo: { event: EventApi }) => {
     const e = clickInfo.event;
-    const ex = e.extendedProps as EventExtendedProps;
+    const ex = (e.extendedProps as unknown) as EventExtendedProps;
     setSelectedEvent({
       id: e.id, title: e.title, start: e.start, end: e.end,
       description: ex.description || "", location: ex.location || "",
@@ -208,15 +209,17 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
     setModalDate(null); setIsModalOpen(true);
   };
 
-  const handleEventDrop = async (dropInfo: { event: any; revert: () => void }) => {
+  const handleEventDrop = async (dropInfo: { event: EventApi; revert: () => void }) => {
     const e = dropInfo.event;
-    const { error } = await supabase.from("events").update({ start_time: e.start?.toISOString(), end_time: e.end?.toISOString() }).eq("id", e.id);
+    const startIso = e.start instanceof Date ? e.start.toISOString() : null;
+    const endIso = e.end instanceof Date ? e.end.toISOString() : null;
+    const { error } = await supabase.from("events").update({ start_time: startIso, end_time: endIso }).eq("id", e.id);
     if (error) { toast({ title: "Error", description: "Failed to update event", variant: "destructive" }); dropInfo.revert(); }
     else { toast({ title: "Event updated", description: "Event has been rescheduled" }); }
   };
 
-  const renderEventContent = (info: { event: any; timeText: string }) => {
-    const ex = info.event.extendedProps as EventExtendedProps;
+  const renderEventContent = (info: { event: EventApi; timeText: string }) => {
+    const ex = (info.event.extendedProps as unknown) as EventExtendedProps;
     const rsvpGoing = Number(ex.rsvp_going || 0);
     const rsvpMaybe = Number(ex.rsvp_maybe || 0);
     const total = rsvpGoing + rsvpMaybe;
@@ -243,7 +246,7 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
 
   // filter events based on legend selection
   const displayedEvents = events.filter(ev => {
-    const creatorId = (ev.extendedProps as any).creator_member_id as string | undefined;
+    const creatorId = ((ev.extendedProps as unknown) as EventExtendedProps).creator_member_id as string | undefined;
     const selected = props.activeIds || new Set<string>();
     if (selected.size === 0) return true;
     if (!creatorId) return true;
