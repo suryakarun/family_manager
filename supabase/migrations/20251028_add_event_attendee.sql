@@ -26,65 +26,44 @@ GROUP BY e.id;
 ALTER TABLE IF EXISTS public.event_attendee ENABLE ROW LEVEL SECURITY;
 
 -- Policy: family members who appear as attendees (or their family) can SELECT
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policy p
-    WHERE p.polname = 'family can read'
-      AND p.polrelid = 'public.event_attendee'::regclass
-  ) THEN
-    EXECUTE $$
-      CREATE POLICY "family can read" ON public.event_attendee
-        FOR SELECT
-        USING (
-          EXISTS (
-            SELECT 1 FROM public.family_members m
-            WHERE m.id = public.event_attendee.member_id
-              AND m.family_id = (
-                SELECT family_id FROM public.family_members WHERE user_id = auth.uid()
-              )
-          )
-        );
-    $$;
-  END IF;
-END
-$$;
+-- DROP existing policy if present, then create fresh one (more portable than CREATE POLICY IF NOT EXISTS)
+DROP POLICY IF EXISTS "family can read" ON public.event_attendee;
+CREATE POLICY "family can read" ON public.event_attendee
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.family_members m
+      WHERE m.id = public.event_attendee.member_id
+        AND m.family_id = (
+          SELECT family_id FROM public.family_members WHERE user_id = auth.uid()
+        )
+    )
+  );
 
 -- Policy: creator or family can INSERT/UPDATE/DELETE (write)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policy p
-    WHERE p.polname = 'creator or family can write'
-      AND p.polrelid = 'public.event_attendee'::regclass
-  ) THEN
-    EXECUTE $$
-      CREATE POLICY "creator or family can write" ON public.event_attendee
-        FOR ALL
-        USING (
-          EXISTS (
-            SELECT 1 FROM public.events e
-            JOIN public.family_members cm ON cm.user_id = e.created_by
-            WHERE e.id = public.event_attendee.event_id
-              AND cm.family_id = (
-                SELECT m.family_id FROM public.family_members m WHERE m.id = public.event_attendee.member_id
-              )
-          )
+DROP POLICY IF EXISTS "creator or family can write" ON public.event_attendee;
+CREATE POLICY "creator or family can write" ON public.event_attendee
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      JOIN public.family_members cm ON cm.user_id = e.created_by
+      WHERE e.id = public.event_attendee.event_id
+        AND cm.family_id = (
+          SELECT m.family_id FROM public.family_members m WHERE m.id = public.event_attendee.member_id
         )
-        WITH CHECK (
-          EXISTS (
-            SELECT 1 FROM public.events e
-            JOIN public.family_members cm ON cm.user_id = e.created_by
-            WHERE e.id = public.event_attendee.event_id
-              AND cm.family_id = (
-                SELECT m.family_id FROM public.family_members m WHERE m.id = public.event_attendee.member_id
-              )
-          )
-        );
-    $$;
-  END IF;
-END
-$$;
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.events e
+      JOIN public.family_members cm ON cm.user_id = e.created_by
+      WHERE e.id = public.event_attendee.event_id
+        AND cm.family_id = (
+          SELECT m.family_id FROM public.family_members m WHERE m.id = public.event_attendee.member_id
+        )
+    )
+  );
 
 -- Example RPC to create an event with attendees in one call
 CREATE OR REPLACE FUNCTION public.create_event_with_attendees(payload jsonb)
