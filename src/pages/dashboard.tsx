@@ -18,6 +18,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [familyStats, setFamilyStats] = useState({ events: 0, members: 0, rsvps: 0 });
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; display_name: string; color: string; avatar_url?: string | null }>>([]);
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const [travelPlan, setTravelPlan] = useState<any>(null);
   const [eventDetails, setEventDetails] = useState<any>(null);
   const navigate = useNavigate();
@@ -68,8 +70,39 @@ const Dashboard = () => {
     });
   }, [selectedFamilyId]);
 
+  const fetchMembers = useCallback(async () => {
+    if (!selectedFamilyId) return;
+    try {
+      const { data: famMembers } = await supabase
+        .from("family_members")
+        .select("id, user_id, color")
+        .eq("family_id", selectedFamilyId);
+
+      const userIds = (famMembers || []).map((fm: any) => fm.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
+
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+      const membersArr = (famMembers || []).map((fm: any) => ({
+        id: fm.id,
+        user_id: fm.user_id,
+        display_name: profileMap.get(fm.user_id)?.full_name || "",
+        color: fm.color || "#3B82F6",
+        avatar_url: profileMap.get(fm.user_id)?.avatar_url || null,
+      }));
+
+      setMembers(membersArr);
+    } catch (err) {
+      console.error("Error fetching members:", err);
+    }
+  }, [selectedFamilyId]);
+
   useEffect(() => {
     if (selectedFamilyId) fetchFamilyStats();
+    if (selectedFamilyId) fetchMembers();
   }, [selectedFamilyId, fetchFamilyStats]);
 
   if (loading) {
@@ -123,7 +156,14 @@ const Dashboard = () => {
           {/* Calendar */}
           <TabsContent value="calendar" className="space-y-2 sm:space-y-6 px-0">
             {selectedFamilyId ? (
-              <FamilyCalendar familyId={selectedFamilyId} />
+              <FamilyCalendar familyId={selectedFamilyId} members={members} activeIds={activeIds} onToggleMember={(id: string) => {
+                setActiveIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                });
+              }} />
             ) : (
               <Card className="p-12 text-center">
                 <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
@@ -137,7 +177,19 @@ const Dashboard = () => {
 
           {/* Overview */}
           <TabsContent value="overview" className="space-y-6">
-            {selectedFamilyId && <FamilyOverview familyId={selectedFamilyId} />}
+            {selectedFamilyId && (
+              <FamilyOverview
+                familyId={selectedFamilyId}
+                members={members}
+                activeIds={activeIds}
+                onToggleMember={(id: string) => setActiveIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })}
+              />
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
