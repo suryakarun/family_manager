@@ -28,13 +28,13 @@ ALTER TABLE IF EXISTS public.event_attendee ENABLE ROW LEVEL SECURITY;
 -- Policy: family members who appear as attendees (or their family) can SELECT
 -- DROP existing policy if present, then create fresh one (more portable than CREATE POLICY IF NOT EXISTS)
 DROP POLICY IF EXISTS "family can read" ON public.event_attendee;
-CREATE POLICY "family can read" ON public.event_attendee
+  CREATE POLICY "family can read" ON public.event_attendee
   FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM public.family_members m
       WHERE m.id = public.event_attendee.member_id
-        AND m.family_id = (
+        AND m.family_id IN (
           SELECT family_id FROM public.family_members WHERE user_id = auth.uid()
         )
     )
