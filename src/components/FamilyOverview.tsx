@@ -276,6 +276,11 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
     });
   };
 
+  // DEBUG: log parent members and resolved colors to help trace identical-color issue
+  if (import.meta.env.DEV) {
+    console.debug("FamilyOverview: parentMembers:", parentMembers);
+  }
+
   return (
     <>
       <Card className="p-5 space-y-5">
@@ -345,7 +350,8 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
             {sorted.length ? (
               sorted.map((m) => {
                 const pm = (parentMembers || []).find((p) => p.user_id === m.id || p.id === m.membershipId);
-                const color = pm?.color || pickColorForId(m.id);
+                const color = pm?.color || pickColorForId(m.id || (m.membershipId || ''));
+                if (import.meta.env.DEV) console.debug('FamilyOverview: member', m.name, 'membershipId', m.membershipId, 'resolved color', color, 'pm.color', pm?.color, 'pm', pm);
                 return (
                   <div
                     key={m.id}
