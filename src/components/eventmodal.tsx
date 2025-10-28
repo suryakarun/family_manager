@@ -294,17 +294,32 @@ const EventModal = ({
         }
 
       } else if (defaultDate) {
+        // When a default date is provided, convert it to a local Date and ensure
+        // we don't populate the modal with a start time that's already in the past
+        // relative to the user's clock. If it is in the past, pick the next
+        // available slot (rounded up to the next hour).
         console.log("Populating modal with default date:", defaultDate.toISOString());
         resetForm();
-        
-        // --- MODIFIED: Set default date to local current time ---
+
         const initialStartDate = new Date(defaultDate);
-        setStartTime(formatForDateTimeLocal(initialStartDate));
-        
-        const initialEndDate = new Date(initialStartDate);
+        const now = new Date();
+
+        // If the computed initial start is in the past, use next rounded hour
+        let startCandidate = initialStartDate;
+        if (startCandidate < now) {
+          const next = new Date(now);
+          next.setMinutes(0, 0, 0);
+          next.setHours(next.getHours() + 1);
+          startCandidate = next;
+          console.log("Default start was in the past; using next available slot:", startCandidate.toISOString());
+        }
+
+        setStartTime(formatForDateTimeLocal(startCandidate));
+
+        const initialEndDate = new Date(startCandidate);
         initialEndDate.setHours(initialEndDate.getHours() + 1);
         setEndTime(formatForDateTimeLocal(initialEndDate));
-        // --- END MODIFIED ---
+      // --- END MODIFIED ---
 
       } else {
         console.log("Modal open but no event or defaultDate, resetting form.");
