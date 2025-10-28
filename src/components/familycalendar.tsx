@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import MemberLegend from "@/components/MemberLegend";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -24,6 +25,8 @@ type EventExtendedProps = {
   rsvp_not_going?: number;
   creator_avatar_url?: string;
   creator_name?: string;
+  creator_member_id?: string;
+  creator_color?: string;
 };
 
 interface CalendarEvent {
@@ -40,6 +43,8 @@ interface CalendarEvent {
 
 const FamilyCalendar = ({ familyId }: FamilyCalendarProps) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; display_name: string; color: string; avatar_url?: string | null }>>([]);
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<{
     id: string; title: string; start: Date; end: Date; description: string;
     location: string; color: string; notes: string;
@@ -121,10 +126,25 @@ const FamilyCalendar = ({ familyId }: FamilyCalendarProps) => {
     type DbEvent = { id: string; title: string; start_time: string; end_time: string; color?: string|null; description?: string|null; location?: string|null; recurrence_rule?: string|null; created_by: string };
 
     const creatorIds = Array.from(new Set(((data || []) as DbEvent[]).map(e => e.created_by).filter(Boolean)));
-    let creators = new Map<string, { full_name: string; avatar_url: string|null }>();
+
+    // Fetch family_members for this family to get member colors and member ids
+    let userIdToMember = new Map<string, { id: string; color: string; avatar_url?: string | null; display_name: string }>();
     if (creatorIds.length) {
-      const { data: c } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", creatorIds);
-      creators = new Map((c || []).map((p: any) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]));
+      const { data: famMembers } = await supabase.from("family_members").select("id, user_id, color").eq("family_id", familyId).in("user_id", creatorIds);
+      const userIds = (famMembers || []).map((fm: any) => fm.user_id);
+      // fetch profiles for display names and avatars
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds);
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      // build members array and map
+      const membersArr: any[] = (famMembers || []).map((fm: any) => ({
+        id: fm.id,
+        user_id: fm.user_id,
+        color: fm.color || "#3B82F6",
+        display_name: profileMap.get(fm.user_id)?.full_name || "",
+        avatar_url: profileMap.get(fm.user_id)?.avatar_url || null,
+      }));
+      membersArr.forEach(m => userIdToMember.set(m.user_id, { id: m.id, color: m.color, avatar_url: m.avatar_url, display_name: m.display_name }));
+      setMembers(membersArr);
     }
 
     const { data: rsvps } = await supabase.from("event_invites").select("event_id, status");
@@ -232,16 +252,34 @@ const FamilyCalendar = ({ familyId }: FamilyCalendarProps) => {
     );
   };
 
+  // filter events based on legend selection
+  const displayedEvents = events.filter(ev => {
+    const creatorId = (ev.extendedProps as any).creator_member_id as string | undefined;
+    if (activeIds.size === 0) return true;
+    if (!creatorId) return true;
+    return activeIds.has(creatorId);
+  });
+
+  const toggleMember = (id: string) => {
+    setActiveIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <>
       <Card className="p-6 shadow-card">
+        <MemberLegend members={members} activeIds={activeIds} onToggle={toggleMember} />
         <FullCalendar
           className="fc-dark-skin"   // ✅ makes dark overrides apply
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }}
-          events={events}
+          events={displayedEvents}
           editable selectable selectMirror dayMaxEvents weekends
           dateClick={handleDateClick}
           eventClick={handleEventClick}
