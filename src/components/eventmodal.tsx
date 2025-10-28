@@ -172,6 +172,12 @@ const EventModal = ({
   
   // Conflict detection state
   const [conflictingEvents, setConflictingEvents] = useState<Array<{ id: string; title: string; start_time: string; end_time: string }>>([]);
+  // Attendees state
+  const [membersList, setMembersList] = useState<Array<{ id: string; user_id: string; display_name: string; color?: string; avatar_url?: string | null }>>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [drivingNeededFor, setDrivingNeededFor] = useState<Record<string, boolean>>({});
+  const [existingAttendees, setExistingAttendees] = useState<Array<{ member_id: string; required: boolean; driving_needed: boolean }>>([]);
   
   const handleGetAISuggestions = async () => {
     setShowAISuggestions(true);
@@ -293,7 +299,7 @@ const EventModal = ({
             setRecurrenceEndDate('');
         }
 
-      } else if (defaultDate) {
+  } else if (defaultDate) {
         // When a default date is provided, convert it to a local Date and ensure
         // we don't populate the modal with a start time that's already in the past
         // relative to the user's clock. If it is in the past, pick the next
@@ -321,6 +327,39 @@ const EventModal = ({
         setEndTime(formatForDateTimeLocal(initialEndDate));
       // --- END MODIFIED ---
 
+        // fetch family members for attendee UI even on defaultDate create
+        (async () => {
+          try {
+            setMembersLoading(true);
+            const { data: famMembers } = await supabase
+              .from("family_members")
+              .select("id, user_id, color")
+              .eq("family_id", familyId);
+
+            const userIds = (famMembers || []).map((fm: any) => fm.user_id);
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, full_name, avatar_url")
+              .in("id", userIds || []);
+
+            const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+            const membersArr = (famMembers || []).map((fm: any) => ({
+              id: fm.id,
+              user_id: fm.user_id,
+              display_name: profileMap.get(fm.user_id)?.full_name || "",
+              color: fm.color ?? undefined,
+              avatar_url: profileMap.get(fm.user_id)?.avatar_url || null,
+            }));
+
+            setMembersList(membersArr);
+          } catch (err) {
+            console.error("Error fetching members for attendees:", err);
+          } finally {
+            setMembersLoading(false);
+          }
+        })();
+
       } else {
         console.log("Modal open but no event or defaultDate, resetting form.");
         resetForm();
@@ -339,6 +378,65 @@ const EventModal = ({
       resetForm();
     }
   }, [isOpen, event, defaultDate]);
+
+  // Load members and event attendees when modal opens or when familyId/event changes
+  useEffect(() => {
+    if (!isOpen || !familyId) return;
+
+    const load = async () => {
+      try {
+        setMembersLoading(true);
+        const { data: famMembers } = await supabase
+          .from("family_members")
+          .select("id, user_id, color")
+          .eq("family_id", familyId);
+
+        const userIds = (famMembers || []).map((fm: any) => fm.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds || []);
+
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+        const membersArr = (famMembers || []).map((fm: any) => ({
+          id: fm.id,
+          user_id: fm.user_id,
+          display_name: profileMap.get(fm.user_id)?.full_name || "",
+          color: fm.color ?? undefined,
+          avatar_url: profileMap.get(fm.user_id)?.avatar_url || null,
+        }));
+
+        setMembersList(membersArr);
+
+        if (event && event.id) {
+          // fetch existing attendees for this event
+          const { data: attendees } = await supabase
+            .from("event_attendee")
+            .select("member_id, required, driving_needed")
+            .eq("event_id", event.id);
+
+          if (attendees) {
+            setExistingAttendees(attendees as any);
+            setSelectedMemberIds((attendees as any).map((a: any) => a.member_id));
+            const drivingMap: Record<string, boolean> = {};
+            (attendees as any).forEach((a: any) => { drivingMap[a.member_id] = !!a.driving_needed; });
+            setDrivingNeededFor(drivingMap);
+          }
+        } else {
+          setExistingAttendees([]);
+          setSelectedMemberIds([]);
+          setDrivingNeededFor({});
+        }
+      } catch (err) {
+        console.error("Error loading attendees/members:", err);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    load();
+  }, [isOpen, familyId, event?.id]);
 
   // Check for conflicts whenever time changes
   useEffect(() => {
@@ -384,6 +482,18 @@ const EventModal = ({
 
   const handleRemoveChecklistItem = (id: string) => {
     setChecklist((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // Attendee toggles
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMemberIds((prev) => {
+      if (prev.includes(memberId)) return prev.filter((id) => id !== memberId);
+      return [...prev, memberId];
+    });
+  };
+
+  const toggleDrivingNeeded = (memberId: string) => {
+    setDrivingNeededFor((prev) => ({ ...prev, [memberId]: !prev[memberId] }));
   };
 
   // Generate RRULE string for recurring events
@@ -533,6 +643,12 @@ const EventModal = ({
       }
 
       const recurrenceRule = generateRecurrenceRule();
+      // Build attendees payload from selected members
+      const attendeesPayload = selectedMemberIds.map((mid) => ({
+        member_id: mid,
+        required: true,
+        driving_needed: drivingNeededFor[mid] ?? false,
+      }));
       
       const eventData = {
         family_id: familyId,
@@ -558,6 +674,38 @@ const EventModal = ({
           .eq("id", event.id);
         if (error) throw error;
 
+        // Upsert attendees for existing event
+        try {
+          if (selectedMemberIds.length > 0) {
+            const upserts = selectedMemberIds.map((id) => ({
+              event_id: event.id,
+              member_id: id,
+              required: true,
+              driving_needed: drivingNeededFor[id] ?? false,
+            }));
+            const { error: upsertError } = await supabase.from("event_attendee").upsert(upserts);
+            if (upsertError) throw upsertError;
+          }
+
+          // Delete attendees that were removed
+          if (existingAttendees.length > 0) {
+            const removed = existingAttendees.map((a) => a.member_id).filter((id) => !selectedMemberIds.includes(id));
+            if (removed.length > 0) {
+              // Build quoted list for IN clause
+              const quoted = removed.map((r) => `'${r}'`).join(",");
+              const { error: delErr } = await supabase
+                .from("event_attendee")
+                .delete()
+                .eq("event_id", event.id)
+                .not("member_id", "in", `(${quoted})`);
+              if (delErr) throw delErr;
+            }
+          }
+        } catch (err) {
+          console.error("Error syncing attendees for update:", err);
+          throw err;
+        }
+
         // Queue WhatsApp reminder for updated event
         if (sendWhatsappReminder && reminderOffsetMinutes !== null) {
           await queueWhatsAppReminder(event.id, title, startDateTime, reminderOffsetMinutes, user.id, description, location, notes, checklist);
@@ -568,12 +716,26 @@ const EventModal = ({
           description: "Your event has been updated successfully",
         });
       } else {
-        const { data: newEvent, error } = await supabase.from("events").insert([eventData]).select().single();
-        if (error) throw error;
+        // Use RPC to create event with attendees atomically
+        const payload = {
+          family_id: familyId,
+          creator_id: user.id,
+          title,
+          description,
+          location,
+          starts_at: startDateTime.toISOString(),
+          ends_at: endDateTime.toISOString(),
+          recurrence: recurrenceRule,
+          attendees: attendeesPayload,
+        };
+
+        const { data: rpcData, error: rpcError } = await supabase.rpc("create_event_with_attendees", { payload });
+        if (rpcError) throw rpcError;
+        const newEventId = rpcData;
 
         // Queue WhatsApp reminder for new event
-        if (sendWhatsappReminder && reminderOffsetMinutes !== null && newEvent) {
-          await queueWhatsAppReminder(newEvent.id, title, startDateTime, reminderOffsetMinutes, user.id, description, location, notes, checklist);
+        if (sendWhatsappReminder && reminderOffsetMinutes !== null && newEventId) {
+          await queueWhatsAppReminder(newEventId, title, startDateTime, reminderOffsetMinutes, user.id, description, location, notes, checklist);
         }
 
         toast({
@@ -802,6 +964,40 @@ const EventModal = ({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <span className="text-sm">👥 Attendees</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {membersLoading ? (
+                <div className="text-sm text-muted-foreground">Loading members...</div>
+              ) : (
+                membersList.map((m) => {
+                  const selected = selectedMemberIds.includes(m.id);
+                  return (
+                    <div key={m.id} className={`flex items-center gap-2 px-2 py-1 rounded-full border ${selected ? 'bg-primary/10 border-primary' : 'bg-muted/50'}`}>
+                      <button type="button" onClick={() => toggleMemberSelection(m.id)} className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color || '#CBD5E1' }} />
+                        <span className="text-sm">{m.display_name || 'Member'}</span>
+                      </button>
+                      {selected && (
+                        <label className="flex items-center gap-1 ml-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={!!drivingNeededFor[m.id]}
+                            onChange={() => toggleDrivingNeeded(m.id)}
+                            className="form-checkbox h-4 w-4"
+                          />
+                          <span className="text-xs">driving</span>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-4">
