@@ -243,6 +243,16 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
+  // Deterministic color picker (fallback when DB doesn't have a color)
+  const palette = ["#f97316","#f43f5e","#8b5cf6","#06b6d4","#10b981","#f59e0b","#3b82f6","#ef4444","#7c3aed","#14b8a6"];
+  const pickColorForId = (id: string) => {
+    if (!id) return "#3b82f6";
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h << 5) - h + id.charCodeAt(i);
+    const idx = Math.abs(h) % palette.length;
+    return palette[idx];
+  };
+
   const sorted = useMemo(() => {
     const rank: Record<string, number> = { owner: 0, admin: 1, member: 2 };
     return [...members].sort(
@@ -324,27 +334,7 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
           </div>
         </div>
 
-        {/* Legend area: show member color chips when parent provides members */}
-        {parentMembers && parentMembers.length > 0 && (
-          <div className="mb-4">
-            <div className="text-sm text-muted-foreground mb-2">Member colors</div>
-            <div className="flex flex-wrap gap-2">
-              {parentMembers.map((m) => {
-                const active = activeSet.has(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => toggleMemberActive(m.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all ${active ? "ring-2 ring-offset-1" : "bg-muted"}`}
-                  >
-                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: m.color || "#3B82F6" }} />
-                    <span className="text-sm">{m.display_name || "User"}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Member colors are shown inline next to each member below (no separate legend) */}
 
         <div>
           <div className="flex items-center justify-between">
@@ -352,23 +342,27 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {sorted.length ? (
-              sorted.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border group"
-                >
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-xs">
-                      {getInitials(m.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium">{m.name}</span>
-                  <Badge
-                    variant={m.role === "owner" ? "secondary" : "outline"}
-                    className="text-xs"
+              sorted.map((m) => {
+                const pm = (parentMembers || []).find((p) => p.user_id === m.id || p.id === m.membershipId);
+                const color = pm?.color || pickColorForId(m.id);
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border group"
                   >
-                    {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
-                  </Badge>
+                    <span title={`Member color: ${color}`} className="inline-block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-xs">
+                        {getInitials(m.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium">{m.name}</span>
+                    <Badge
+                      variant={m.role === "owner" ? "secondary" : "outline"}
+                      className="text-xs"
+                    >
+                      {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
+                    </Badge>
 
                   {/* Owner can remove non-owner members */}
                   {isOwner && m.id !== familyOwnerId && (
@@ -382,7 +376,8 @@ export default function FamilyOverview({ familyId, members: parentMembers, activ
                     </Button>
                   )}
                 </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-sm text-muted-foreground">No members yet.</div>
             )}
