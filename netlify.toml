@@ -1,0 +1,3 @@
+[build]
+  functions = "netlify/functions"
+  publish = "dist" # <-- if your site build output folder is named differently (like build or public), change this
