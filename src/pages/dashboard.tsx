@@ -12,11 +12,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { Calendar as CalIcon, Users, Sparkles, Plane } from "lucide-react";
 import { TravelPlanner } from "@/components/TravelPlanner";
 import { TravelPlanResults } from "@/components/TravelPlanResults";
+import { AIAssistant } from '@/components/AIAssistant';
 
 const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
+  const [showAI, setShowAI] = useState(false);
   const [familyStats, setFamilyStats] = useState({ events: 0, members: 0, rsvps: 0 });
   const [members, setMembers] = useState<Array<{ id: string; user_id: string; display_name: string; color: string; avatar_url?: string | null }>>([]);
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
@@ -119,7 +121,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-soft">
-      <DashboardHeader session={session} />
+      <DashboardHeader session={session} onOpenAI={() => setShowAI(true)} />
 
       <main className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
         {/* Top row: welcome + family selector */}
@@ -227,6 +229,21 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+      {/* AI Assistant (floating/modal) */}
+      {showAI && selectedFamilyId && session?.user?.id && (
+        <AIAssistant
+          familyId={selectedFamilyId}
+          userId={session.user.id}
+          onEventCreated={(event) => {
+            // close the assistant and refresh
+            setShowAI(false);
+            fetchFamilyStats();
+          }}
+          onConflictDetected={(conflicts) => {
+            console.log('AI conflicts', conflicts);
+          }}
+        />
+      )}
     </div>
   );
 };

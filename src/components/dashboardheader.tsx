@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,9 +18,10 @@ import { useEffect, useState } from "react";
 
 interface DashboardHeaderProps {
   session: Session;
+  onOpenAI?: () => void;
 }
 
-const DashboardHeader = ({ session }: DashboardHeaderProps) => {
+const DashboardHeader = ({ session, onOpenAI }: DashboardHeaderProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -49,8 +50,8 @@ const DashboardHeader = ({ session }: DashboardHeaderProps) => {
         { event: "*", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
         (payload) => {
           if (payload.new && typeof payload.new === "object") {
-            const newData = payload.new as any;
-            setAvatarUrl(newData.avatar_url);
+            const newData = payload.new as { avatar_url?: string | null; full_name?: string };
+            setAvatarUrl(newData.avatar_url ?? null);
             setFullName(newData.full_name || "");
           }
         }
@@ -84,6 +85,17 @@ const DashboardHeader = ({ session }: DashboardHeaderProps) => {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {/* AI Assistant toggle button (optional) */}
+          {onOpenAI && (
+            <button
+              onClick={() => onOpenAI()}
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all"
+              title="Open AI Assistant"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">AI</span>
+            </button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

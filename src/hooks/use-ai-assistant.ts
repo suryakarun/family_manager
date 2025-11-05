@@ -1,25 +1,38 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from 'react';
+import { supabase } from '../integrations/supabase/client';
 
-interface AIEventSuggestion {
+export interface AISuggestion {
   title: string;
   description: string;
-  suggestedTime: string;
+  suggestedTime?: string;
 }
 
-interface UseAIAssistantReturn {
-  getSuggestions: (context?: string) => Promise<AIEventSuggestion[]>;
-  getAutoComplete: (partial: string) => Promise<string[]>;
-  getSmartReminder: () => Promise<string>;
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender: 'user' | 'assistant';
+  timestamp: Date;
+  status: 'sending' | 'sent' | 'error';
+  event_preview?: any;
+  suggestions?: string[];
+}
+
+export interface UseAIAssistantReturn {
+  getSuggestions: (context: string) => Promise<AISuggestion[]>;
   loading: boolean;
   error: string | null;
+  messages: ChatMessage[];
+  isTyping: boolean;
+  sendMessage: (message: string) => Promise<void>;
 }
 
 export const useAIAssistant = (): UseAIAssistantReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
 
-  const callAIFunction = async (type: string, context?: string) => {
+  const getSuggestions = async (context: string): Promise<AISuggestion[]> => {
     setLoading(true);
     setError(null);
 
@@ -27,87 +40,158 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error("Not authenticated");
 
-      const { data, error: functionError } = await supabase.functions.invoke(
-        "ai-event-assistant",
-        {
-          body: {
-            userId: userData.user.id,
-            context: context || "",
-            type,
-          },
-        }
-      );
+      // Use Gemini API directly
+      const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': import.meta.env.VITE_GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are a helpful family calendar assistant. Provide 3 event suggestions based on this input: ${context}`
+            }]
+          }],
+          safetySettings: [{
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_NONE"
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 800,
+            topP: 0.8,
+            topK: 40
+          }
+        })
+      });
 
-      if (functionError) throw functionError;
-      if (!data.success) throw new Error(data.error);
+      if (!response.ok) {
+        throw new Error('Failed to get AI suggestions');
+      }
 
-      return data;
-    } catch (err: any) {
-      console.error("AI Assistant error:", err);
-      setError(err.message || "AI assistant failed");
-      throw err;
+      const data = await response.json();
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
+      }
+      const suggestions = data.candidates[0].content.parts[0].text
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => ({
+          title: line,
+          description: line,
+          suggestedTime: new Date().toISOString()
+        }));
+
+      return suggestions;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      console.error("AI Assistant error:", message);
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
-  const getSuggestions = async (context?: string): Promise<AIEventSuggestion[]> => {
+  const sendMessage = async (message: string): Promise<void> => {
+    setIsTyping(true);
+    setError(null);
+
+    // Add user message
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      content: message,
+      sender: 'user',
+      timestamp: new Date(),
+      status: 'sent'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
     try {
-      const data = await callAIFunction("suggestion", context);
-      
-      // Parse the suggestions from AI response
-      const suggestions: AIEventSuggestion[] = [];
-      const lines = data.suggestion.split("\n").filter((l: string) => l.trim());
-      
-      lines.forEach((line: string) => {
-        // Parse format: "1. [Title] - [Description] - [Time]"
-        const match = line.match(/\d+\.\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+)/);
-        if (match) {
-          suggestions.push({
-            title: match[1].trim(),
-            description: match[2].trim(),
-            suggestedTime: match[3].trim(),
-          });
-        }
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error("Not authenticated");
+
+      // Get user's family ID
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('family_id')
+        .eq('id', userData.user.id)
+        .single();
+
+      if (profileError) throw new Error("Failed to get family ID");
+      if (!profileData?.family_id) throw new Error("No family ID found");
+
+      // Use Gemini API directly
+      const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': import.meta.env.VITE_GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are a helpful family calendar assistant. Help with this request: ${message}`
+            }]
+          }],
+          safetySettings: [{
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_NONE"
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 800,
+            topP: 0.8,
+            topK: 40
+          }
+        })
       });
 
-      return suggestions;
-    } catch (err) {
-      return [];
-    }
-  };
+      if (!response.ok) {
+        throw new Error('Failed to get AI response');
+      }
 
-  const getAutoComplete = async (partial: string): Promise<string[]> => {
-    try {
-      if (!partial || partial.length < 2) return [];
+      const data = await response.json();
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
+      }
 
-      const data = await callAIFunction("autocomplete", partial);
-      
-      // Parse suggestions (one per line)
-      return data.suggestion
-        .split("\n")
-        .filter((l: string) => l.trim())
-        .map((l: string) => l.replace(/^\d+\.\s*/, "").trim())
-        .slice(0, 3);
-    } catch (err) {
-      return [];
-    }
-  };
+      const aiResponse = {
+        success: true,
+        response: data.candidates[0].content.parts[0].text,
+        event: null,
+        suggestions: []
+      };
 
-  const getSmartReminder = async (): Promise<string> => {
-    try {
-      const data = await callAIFunction("smart_reminder");
-      return data.suggestion;
+      // Add assistant message
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        content: data.response || "I'm not sure how to help with that.",
+        sender: 'assistant',
+        timestamp: new Date(),
+        status: 'sent',
+        event_preview: data.event,
+        suggestions: data.suggestions
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (err) {
-      return "";
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      console.error("AI Assistant error:", message);
+    } finally {
+      setIsTyping(false);
     }
   };
 
   return {
     getSuggestions,
-    getAutoComplete,
-    getSmartReminder,
     loading,
     error,
+    messages,
+    isTyping,
+    sendMessage
   };
 };

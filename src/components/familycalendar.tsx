@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import EventModal from "@/components/eventmodal";
 import { useToast } from "@/components/ui/use-toast";
 import "./familycalendar.css";
+import { AIAssistant } from './AIAssistant';
 
 type Member = { id: string; user_id: string; display_name: string; color: string; avatar_url?: string | null };
 interface FamilyCalendarProps { familyId: string; members?: Member[]; activeIds?: Set<string>; onToggleMember?: (id: string) => void }
@@ -55,6 +56,7 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Expand RRULE into instances (simple)
   const expandRecurringEvent = (
@@ -209,6 +211,16 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
       .channel("events-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "events", filter: `family_id=eq.${familyId}` }, fetchEvents)
       .subscribe();
+    // load current user id for AI assistant integration
+    (async () => {
+      try {
+        const result = await supabase.auth.getUser();
+        const user = result?.data?.user;
+        setCurrentUserId(user?.id ?? null);
+      } catch (e) {
+        setCurrentUserId(null);
+      }
+    })();
     return () => { supabase.removeChannel(channel); };
   }, [familyId, fetchEvents]);
 
@@ -299,6 +311,27 @@ const FamilyCalendar = (props: FamilyCalendarProps) => {
         defaultDate={modalDate}
         onEventSaved={fetchEvents}
       />
+
+      {/* AI Assistant integration (floating) */}
+      {currentUserId && familyId && (
+        <AIAssistant
+          familyId={familyId}
+          userId={currentUserId}
+          onEventCreated={(event) => {
+            // Refresh calendar when AI creates an event
+            console.log('AI created event', event);
+            fetchEvents();
+            toast({ title: 'Event added by AI', description: event.title });
+          }}
+          onConflictDetected={(conflicts) => {
+            console.log('Conflicts detected by AI', conflicts);
+            if (conflicts && conflicts.length > 0) {
+              toast({ title: 'Conflicts detected', description: `${conflicts.length} potential conflicts found` });
+            }
+          }}
+          defaultMode="chat"
+        />
+      )}
     </>
   );
 };
