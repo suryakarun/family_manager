@@ -41,11 +41,18 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       if (!userData?.user) throw new Error("Not authenticated");
 
       // Use Gemini API directly
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      console.log('API Key available:', !!apiKey); // Will log true/false without exposing the key
+      
+      if (!apiKey) {
+        throw new Error('Gemini API key not found in environment variables');
+      }
+
       const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': import.meta.env.VITE_GEMINI_API_KEY
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify({
           contents: [{
