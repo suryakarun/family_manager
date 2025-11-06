@@ -40,35 +40,25 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error("Not authenticated");
 
-      // Use Gemini API directly
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      console.log('API Key available:', !!apiKey); // Will log true/false without exposing the key
+      // Use HuggingFace API
+      const apiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
       
       if (!apiKey) {
-        throw new Error('Gemini API key not found in environment variables');
+        throw new Error('HuggingFace API key not found in environment variables');
       }
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
+      const response = await fetch('https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are a helpful family calendar assistant. Provide 3 event suggestions based on this input: ${context}`
-            }]
-          }],
-          safetySettings: [{
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_NONE"
-          }],
-          generationConfig: {
+          inputs: `As a family calendar assistant, suggest 3 events based on: ${context}`,
+          parameters: {
+            max_length: 200,
             temperature: 0.7,
-            maxOutputTokens: 800,
-            topP: 0.8,
-            topK: 40
+            top_p: 0.95
           }
         })
       });
@@ -78,10 +68,10 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       }
 
       const data = await response.json();
-      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Invalid response format from Gemini API');
+      if (!data.generated_text) {
+        throw new Error('Invalid response format from HuggingFace API');
       }
-      const suggestions = data.candidates[0].content.parts[0].text
+      const suggestions = data.generated_text
         .split('\n')
         .filter(line => line.trim())
         .map(line => ({
@@ -130,44 +120,41 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       if (profileError) throw new Error("Failed to get family ID");
       if (!profileData?.family_id) throw new Error("No family ID found");
 
-      // Use Gemini API directly
-      const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent', {
+      // Use HuggingFace API
+      const response = await fetch('https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': import.meta.env.VITE_GEMINI_API_KEY
+          'Authorization': `Bearer ${import.meta.env.VITE_HUGGINGFACE_API_KEY}`
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are a helpful family calendar assistant. Help with this request: ${message}`
-            }]
-          }],
-          safetySettings: [{
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_NONE"
-          }],
-          generationConfig: {
+          inputs: `As a family calendar assistant: ${message}`,
+          parameters: {
+            max_length: 200,
             temperature: 0.7,
-            maxOutputTokens: 800,
-            topP: 0.8,
-            topK: 40
+            top_p: 0.95
           }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errorData = await response.text();
+        console.error('Gemini API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(`Failed to get AI response: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Invalid response format from Gemini API');
+      if (!data.generated_text) {
+        throw new Error('Invalid response format from HuggingFace API');
       }
 
       const aiResponse = {
         success: true,
-        response: data.candidates[0].content.parts[0].text,
+        response: data.generated_text,
         event: null,
         suggestions: []
       };
@@ -175,12 +162,12 @@ export const useAIAssistant = (): UseAIAssistantReturn => {
       // Add assistant message
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        content: data.response || "I'm not sure how to help with that.",
+        content: data.generated_text || "I'm not sure how to help with that.",
         sender: 'assistant',
         timestamp: new Date(),
         status: 'sent',
-        event_preview: data.event,
-        suggestions: data.suggestions
+        event_preview: aiResponse.event,
+        suggestions: aiResponse.suggestions
       };
 
       setMessages(prev => [...prev, assistantMessage]);
